@@ -810,7 +810,7 @@ tbody tr:hover td{background:var(--surface2)}
 </div><!-- /main -->
 
 <script>
-const API = 'http://localhost:5000';
+const API = window.location.origin;
 const LABELS = ['healthy','leaf_blight','powdery_mildew','rust','leaf_spot','bacterial_wilt','mosaic_virus','downy_mildew','anthracnose','root_rot','nutrient_deficiency','pest_damage'];
 const COLORS = ['#22c55e','#ef4444','#f59e0b','#f97316','#ec4899','#dc2626','#8b5cf6','#06b6d4','#64748b','#a16207','#eab308','#84cc16'];
 const SEV_COLORS = {none:'#22c55e',medium:'#eab308',high:'#ef4444',critical:'#dc2626'};
