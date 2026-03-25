@@ -1440,19 +1440,11 @@ def health_db():
         return error_response("DB connection failed.", 503, str(e))
 
 @app.route("/ui")
+@app.route("/ui")
 @app.route("/ui/")
-def serve_ui():
-    return send_from_directory(os.path.dirname(os.path.abspath(__file__)), "index.html")
-
 @app.route("/", methods=["GET"])
 def index():
-    return jsonify({"name": "CropHealth AI API", "version": "3.1.0",
-                    "ui": f"http://{Config.HOST}:{Config.PORT}/ui",
-                    "features": ["disease_detection", "batch_processing", "model_comparison", "image_analysis", "caching"],
-                    "endpoints": ["/predict", "/predict/batch", "/predict/url",
-                                  "/history", "/stats", "/stats/timeline", "/stats/labels",
-                                  "/models", "/models/active", "/models/compare",
-                                  "/analyze", "/disease-info", "/feedback", "/health", "/export/csv"]})
+    return send_from_directory(os.path.dirname(os.path.abspath(__file__)), "index.html")
 
 # ─────────────────────────────────────────────
 # ERROR HANDLERS
