@@ -1,0 +1,17 @@
+# CropHealth AI - Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# Web Framework
+Flask==3.0.0
+flask-cors==4.0.0
+gunicorn==21.2.0
+
+# Machine Learning
+numpy==1.26.2
+scikit-learn==1.3.2
+
+# Image Processing
+Pillow==10.1.0
+
+# Optional: For better performance
+# python-dotenv==1.0.0  # Environment variable management

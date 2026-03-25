@@ -1,0 +1,1755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>CropHealth AI — Plant Disease Detection</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060612;--surface:#0e0e20;--surface2:#161628;--surface3:#1e1e38;
+  --border:#1f1f42;--border2:#2a2a55;
+  --accent:#6366f1;--accent-h:#818cf8;--green:#22c55e;--yellow:#eab308;
+  --red:#ef4444;--cyan:#06b6d4;--orange:#f97316;--pink:#ec4899;
+  --text:#f1f5f9;--text2:#94a3b8;--text3:#475569;
+  --radius:14px;--radius-sm:8px;--radius-xs:5px;
+  --shadow:0 20px 60px rgba(0,0,0,.6);--shadow-sm:0 4px 20px rgba(0,0,0,.4);
+  --transition:all .2s cubic-bezier(.4,0,.2,1);
+}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;line-height:1.5}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--surface)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--accent)}
+button{cursor:pointer;font-family:inherit;border:none;outline:none}
+input,select,textarea{font-family:inherit;outline:none}
+a{color:var(--accent);text-decoration:none}
+
+/* ── LAYOUT ── */
+.app{display:flex;min-height:100vh}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:256px;min-width:256px;background:var(--surface);
+  border-right:1px solid var(--border);display:flex;flex-direction:column;
+  position:fixed;top:0;left:0;height:100vh;z-index:200;
+  transition:transform .3s cubic-bezier(.4,0,.2,1);
+}
+.sidebar-brand{
+  padding:20px 18px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;
+}
+.brand-icon{
+  width:38px;height:38px;border-radius:10px;
+  background:linear-gradient(135deg,var(--accent),var(--cyan));
+  display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;
+}
+.brand-name{font-size:.95rem;font-weight:700;color:var(--text);letter-spacing:-.3px}
+.brand-ver{font-size:.68rem;color:var(--text3);margin-top:1px}
+.nav-group{padding:16px 10px 4px;font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;font-weight:600}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:9px 14px;
+  margin:1px 6px;border-radius:var(--radius-sm);color:var(--text2);
+  font-size:.84rem;font-weight:500;transition:var(--transition);cursor:pointer;
+  background:transparent;width:calc(100% - 12px);text-align:left;
+}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:rgba(99,102,241,.15);color:var(--accent-h);font-weight:600}
+.nav-item.active .nav-icon{color:var(--accent)}
+.nav-icon{font-size:.95rem;width:18px;text-align:center;flex-shrink:0}
+.nav-badge{margin-left:auto;background:var(--accent);color:#fff;font-size:.6rem;padding:2px 7px;border-radius:20px;font-weight:700}
+.sidebar-footer{margin-top:auto;padding:14px 16px;border-top:1px solid var(--border)}
+.api-status{display:flex;align-items:center;gap:8px;font-size:.75rem;color:var(--text2)}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0;transition:background .3s}
+.status-dot.online{background:var(--green);box-shadow:0 0 6px var(--green)}
+.status-dot.degraded{background:var(--yellow)}
+.status-dot.offline{background:var(--red)}
+
+/* ── MAIN ── */
+.main{margin-left:256px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{
+  background:rgba(14,14,32,.85);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);padding:0 24px;height:58px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:100;
+}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.hamburger{display:none;background:none;color:var(--text2);font-size:1.2rem;padding:4px}
+.page-title{font-size:1rem;font-weight:600;color:var(--text)}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.search-box{
+  background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:6px 12px;color:var(--text);font-size:.82rem;width:200px;
+  transition:var(--transition);
+}
+.search-box:focus{border-color:var(--accent);width:240px}
+.search-box::placeholder{color:var(--text3)}
+.icon-btn{
+  background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
+  color:var(--text2);padding:6px 10px;font-size:.85rem;transition:var(--transition);
+}
+.icon-btn:hover{color:var(--text);border-color:var(--accent)}
+.content{padding:24px;flex:1}
+
+/* ── PAGES ── */
+.page{display:none;animation:fadeIn .25s ease}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ── GRID ── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.card-sm{padding:14px}
+.card-title{font-size:.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;font-weight:600}
+.card:hover{border-color:var(--border2)}
+
+/* ── STAT CARDS ── */
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:18px;display:flex;flex-direction:column;gap:6px;transition:var(--transition);
+  position:relative;overflow:hidden;
+}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent-color,var(--accent))}
+.stat-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.stat-icon{font-size:1.4rem;margin-bottom:2px}
+.stat-value{font-size:1.7rem;font-weight:800;color:var(--text);letter-spacing:-1px}
+.stat-label{font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:500}
+.stat-sub{font-size:.72rem;color:var(--text2);margin-top:2px}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:var(--radius-sm);font-size:.84rem;font-weight:600;transition:var(--transition)}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--cyan));color:#fff;border:none}
+.btn-primary:hover{opacity:.88;transform:translateY(-1px);box-shadow:0 4px 20px rgba(99,102,241,.4)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-secondary{background:var(--surface2);border:1px solid var(--border);color:var(--text2)}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+.btn-danger{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red)}
+.btn-danger:hover{background:rgba(239,68,68,.2)}
+.btn-sm{padding:5px 12px;font-size:.78rem}
+.btn-full{width:100%;justify-content:center}
+.btn-ghost{background:none;border:none;color:var(--text2);padding:4px 8px;font-size:.82rem}
+.btn-ghost:hover{color:var(--text)}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.badge-green{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge-yellow{background:rgba(234,179,8,.12);color:var(--yellow);border:1px solid rgba(234,179,8,.2)}
+.badge-red{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge-blue{background:rgba(6,182,212,.12);color:var(--cyan);border:1px solid rgba(6,182,212,.2)}
+.badge-purple{background:rgba(99,102,241,.12);color:var(--accent-h);border:1px solid rgba(99,102,241,.2)}
+.badge-orange{background:rgba(249,115,22,.12);color:var(--orange);border:1px solid rgba(249,115,22,.2)}
+
+/* ── SEVERITY BADGES ── */
+.sev-none{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.sev-medium{background:rgba(234,179,8,.12);color:var(--yellow);border:1px solid rgba(234,179,8,.25)}
+.sev-high{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+.sev-critical{background:rgba(220,38,38,.2);color:#fca5a5;border:1px solid rgba(220,38,38,.4)}
+
+/* ── LOADER ── */
+.loader{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+.loader-lg{width:32px;height:32px;border-width:3px;border-top-color:var(--accent)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:40px;color:var(--text3);font-size:.84rem}
+
+/* ── ALERTS ── */
+.alert{padding:12px 16px;border-radius:var(--radius-sm);font-size:.84rem;display:flex;align-items:flex-start;gap:10px;margin-bottom:14px}
+.alert-success{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);color:#86efac}
+.alert-error{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#fca5a5}
+.alert-info{background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.2);color:#67e8f9}
+.alert-warning{background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.2);color:#fde047}
+
+/* ── TABLES ── */
+.table-wrap{overflow-x:auto;border-radius:var(--radius-sm)}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+thead th{padding:9px 12px;text-align:left;color:var(--text3);font-size:.68rem;text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border);font-weight:600;white-space:nowrap;background:var(--surface2)}
+tbody td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--surface2)}
+.td-clip{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── PAGINATION ── */
+.pagination{display:flex;align-items:center;gap:5px;margin-top:14px;justify-content:center}
+.pg-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:5px 11px;border-radius:var(--radius-xs);font-size:.78rem;transition:var(--transition)}
+.pg-btn:hover,.pg-btn.active{border-color:var(--accent);color:var(--accent)}
+.pg-btn:disabled{opacity:.3;cursor:not-allowed}
+
+/* ── DROP ZONE ── */
+.drop-zone{
+  border:2px dashed var(--border2);border-radius:var(--radius);
+  padding:40px 20px;text-align:center;cursor:pointer;transition:var(--transition);position:relative;
+}
+.drop-zone:hover,.drop-zone.over{border-color:var(--accent);background:rgba(99,102,241,.04)}
+.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.dz-icon{font-size:2.5rem;margin-bottom:10px;display:block}
+.dz-title{font-size:.95rem;font-weight:600;margin-bottom:5px;color:var(--text)}
+.dz-sub{font-size:.78rem;color:var(--text3)}
+.dz-sub span{color:var(--accent);font-weight:600}
+
+/* ── PREVIEW ── */
+.preview-wrap{display:none;margin-top:14px;text-align:center}
+.preview-img{max-width:100%;max-height:200px;border-radius:var(--radius-sm);border:1px solid var(--border)}
+.preview-meta{font-size:.72rem;color:var(--text3);margin-top:6px}
+
+/* ── RESULT PANEL ── */
+.result-header{
+  background:linear-gradient(135deg,rgba(99,102,241,.1),rgba(6,182,212,.06));
+  border:1px solid rgba(99,102,241,.2);border-radius:var(--radius);
+  padding:20px;text-align:center;margin-bottom:14px;
+}
+.result-icon{font-size:2.5rem;margin-bottom:8px}
+.result-label{font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.result-value{font-size:1.8rem;font-weight:800;letter-spacing:-.5px;margin-bottom:6px}
+.result-conf{font-size:.88rem;color:var(--text2)}
+.result-meta{font-size:.72rem;color:var(--text3);margin-top:6px}
+
+/* ── CONFIDENCE BAR ── */
+.conf-bar{height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;margin-top:4px}
+.conf-fill{height:100%;border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+
+/* ── PROGRESS ── */
+.progress{height:7px;background:var(--surface3);border-radius:4px;overflow:hidden}
+.progress-fill{height:100%;border-radius:4px;transition:width .8s ease}
+
+/* ── FORM ── */
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:.72rem;color:var(--text3);margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.form-input,.form-select,.form-textarea{
+  width:100%;background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:9px 12px;color:var(--text);font-size:.84rem;transition:var(--transition);
+}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent)}
+.form-select option{background:var(--surface2)}
+.form-textarea{resize:vertical;min-height:72px}
+
+/* ── TOGGLE ── */
+.toggle-row{display:flex;align-items:center;gap:10px;font-size:.82rem;color:var(--text2)}
+.toggle{position:relative;width:38px;height:20px;cursor:pointer;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-track{position:absolute;inset:0;background:var(--border2);border-radius:10px;transition:background .2s}
+.toggle-track::before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .2s}
+.toggle input:checked + .toggle-track{background:var(--accent)}
+.toggle input:checked + .toggle-track::before{transform:translateX(18px)}
+
+/* ── MODEL PILLS ── */
+.model-pills{display:flex;flex-wrap:wrap;gap:7px}
+.model-pill{
+  padding:5px 13px;border-radius:20px;font-size:.76rem;font-weight:600;
+  border:1px solid var(--border);background:var(--surface2);color:var(--text3);
+  transition:var(--transition);cursor:pointer;
+}
+.model-pill:hover{border-color:var(--accent);color:var(--accent)}
+.model-pill.active{background:rgba(99,102,241,.15);border-color:var(--accent);color:var(--accent-h)}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:18px}
+.tab{padding:9px 16px;font-size:.82rem;font-weight:600;color:var(--text3);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:var(--transition)}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent-h);border-bottom-color:var(--accent)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* ── CHART CONTAINERS ── */
+.chart-box{position:relative;height:240px}
+.chart-box-sm{position:relative;height:180px}
+.chart-box-lg{position:relative;height:320px}
+.chart-box-xl{position:relative;height:400px}
+
+/* ── TOAST ── */
+#toasts{position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{
+  background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);
+  padding:11px 16px;font-size:.82rem;color:var(--text);box-shadow:var(--shadow-sm);
+  display:flex;align-items:center;gap:10px;min-width:240px;max-width:340px;
+  animation:toastIn .3s ease;
+}
+.toast-success{border-color:rgba(34,197,94,.3)}
+.toast-error{border-color:rgba(239,68,68,.3)}
+.toast-warning{border-color:rgba(234,179,8,.3)}
+@keyframes toastIn{from{transform:translateX(110%);opacity:0}to{transform:none;opacity:1}}
+@keyframes toastOut{from{transform:none;opacity:1}to{transform:translateX(110%);opacity:0}}
+
+/* ── EMPTY STATE ── */
+.empty{text-align:center;padding:40px 20px;color:var(--text3)}
+.empty-icon{font-size:2.5rem;margin-bottom:10px;display:block}
+.empty p{font-size:.84rem}
+
+/* ── DISEASE CARD ── */
+.disease-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:18px;transition:var(--transition);cursor:default;
+  border-top:3px solid var(--d-color,var(--border));
+}
+.disease-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-sm);border-color:var(--border2)}
+
+/* ── SCROLL LIST ── */
+.scroll-list{max-height:300px;overflow-y:auto;padding-right:2px}
+.list-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.list-row:last-child{border-bottom:none}
+
+/* ── SIDEBAR OVERLAY ── */
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:199}
+
+/* ── RESPONSIVE ── */
+@media(max-width:1100px){.g4{grid-template-columns:repeat(2,1fr)}.g5{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:800px){
+  .sidebar{transform:translateX(-100%)}.sidebar.open{transform:none}
+  .sidebar-overlay.open{display:block}.main{margin-left:0}.hamburger{display:block}
+  .g2,.g3,.g4,.g5{grid-template-columns:1fr}.content{padding:14px}
+  .topbar{padding:0 14px}.search-box{width:130px}
+}
+</style>
+</head>
+<body>
+<div id="toasts"></div>
+<div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-icon">🌿</div>
+    <div>
+      <div class="brand-name">CropHealth AI</div>
+      <div class="brand-ver">Disease Detection v3.1</div>
+    </div>
+  </div>
+
+  <div class="nav-group">Detection</div>
+  <button class="nav-item active" onclick="nav('dashboard')" id="nav-dashboard"><span class="nav-icon">📊</span>Dashboard</button>
+  <button class="nav-item" onclick="nav('classify')" id="nav-classify"><span class="nav-icon">🔍</span>Classify Image</button>
+  <button class="nav-item" onclick="nav('batch')" id="nav-batch"><span class="nav-icon">📦</span>Batch Upload</button>
+  <button class="nav-item" onclick="nav('url')" id="nav-url"><span class="nav-icon">🌐</span>Classify URL</button>
+
+  <div class="nav-group">Analytics</div>
+  <button class="nav-item" onclick="nav('history')" id="nav-history"><span class="nav-icon">📋</span>History<span class="nav-badge" id="badge-hist">0</span></button>
+  <button class="nav-item" onclick="nav('analytics')" id="nav-analytics"><span class="nav-icon">📈</span>Analytics</button>
+  <button class="nav-item" onclick="nav('compare')" id="nav-compare"><span class="nav-icon">⚖️</span>Compare Models</button>
+
+  <div class="nav-group">Tools</div>
+  <button class="nav-item" onclick="nav('analyzer')" id="nav-analyzer"><span class="nav-icon">🔬</span>Image Analyzer</button>
+  <button class="nav-item" onclick="nav('models')" id="nav-models"><span class="nav-icon">🤖</span>ML Models</button>
+  <button class="nav-item" onclick="nav('diseases')" id="nav-diseases"><span class="nav-icon">🌿</span>Disease Library</button>
+  <button class="nav-item" onclick="nav('search')" id="nav-search"><span class="nav-icon">🔎</span>Search</button>
+
+  <div class="sidebar-footer">
+    <div class="api-status">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">Connecting...</span>
+    </div>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="hamburger icon-btn" onclick="openSidebar()">☰</button>
+      <span class="page-title" id="pageTitle">Dashboard</span>
+    </div>
+    <div class="topbar-right">
+      <input class="search-box" type="text" placeholder="Quick search..." id="quickSearch" onkeydown="if(e.key==='Enter')quickSearchGo(event)"/>
+      <button class="icon-btn" onclick="toggleTheme()" id="themeBtn" title="Toggle theme">🌙</button>
+      <button class="icon-btn" onclick="refreshPage()" title="Refresh">🔄</button>
+      <button class="icon-btn" onclick="nav('classify')" title="New scan">➕</button>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- ══ DASHBOARD ══ -->
+    <div class="page active" id="page-dashboard">
+      <div class="g5" style="margin-bottom:18px">
+        <div class="stat-card" style="--accent-color:var(--accent)"><div class="stat-icon">🖼️</div><div class="stat-value" id="sc-total">—</div><div class="stat-label">Total Scans</div></div>
+        <div class="stat-card" style="--accent-color:var(--green)"><div class="stat-icon">📅</div><div class="stat-value" id="sc-today">—</div><div class="stat-label">Today</div></div>
+        <div class="stat-card" style="--accent-color:var(--cyan)"><div class="stat-icon">📆</div><div class="stat-value" id="sc-week">—</div><div class="stat-label">This Week</div></div>
+        <div class="stat-card" style="--accent-color:var(--orange)"><div class="stat-icon">⚡</div><div class="stat-value" id="sc-ms">—</div><div class="stat-label">Avg Speed</div></div>
+        <div class="stat-card" style="--accent-color:var(--pink)"><div class="stat-icon">🎯</div><div class="stat-value" id="sc-acc">—</div><div class="stat-label">Accuracy</div></div>
+      </div>
+      <div class="g2" style="margin-bottom:18px">
+        <div class="card"><div class="card-title">Detections Over Time</div><div class="chart-box"><canvas id="chartTimeline"></canvas></div></div>
+        <div class="card"><div class="card-title">Disease Distribution</div><div class="chart-box"><canvas id="chartDist"></canvas></div></div>
+      </div>
+      <div class="g2">
+        <div class="card"><div class="card-title">Model Usage</div><div class="chart-box-sm"><canvas id="chartModelUsage"></canvas></div></div>
+        <div class="card"><div class="card-title">Recent Detections</div><div class="scroll-list" id="recentList"><div class="loading-state"><div class="loader loader-lg"></div></div></div></div>
+      </div>
+    </div>
+
+    <!-- ══ CLASSIFY ══ -->
+    <div class="page" id="page-classify">
+      <div class="g2">
+        <div>
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-title">Upload Plant / Leaf Image</div>
+            <div class="drop-zone" id="dz-classify">
+              <input type="file" id="fi-classify" accept="image/*"/>
+              <span class="dz-icon">🌿</span>
+              <div class="dz-title">Drop your plant image here</div>
+              <div class="dz-sub"><span>Click to browse</span> or drag & drop</div>
+              <div class="dz-sub" style="margin-top:4px">PNG, JPG, JPEG, WEBP, BMP, HEIC — max 15MB</div>
+            </div>
+            <div class="preview-wrap" id="pw-classify">
+              <img id="pi-classify" class="preview-img" src="" alt="Preview"/>
+              <div class="preview-meta" id="pm-classify"></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Detection Options</div>
+            <div class="form-group">
+              <div class="form-label">ML Model</div>
+              <div class="model-pills" id="modelPills">
+                <div class="model-pill active" data-model="">Auto</div>
+                <div class="model-pill" data-model="random_forest">Random Forest</div>
+                <div class="model-pill" data-model="gradient_boosting">Gradient Boost</div>
+                <div class="model-pill" data-model="svm">SVM</div>
+                <div class="model-pill" data-model="knn">KNN</div>
+                <div class="model-pill" data-model="logistic_regression">Logistic Reg</div>
+              </div>
+            </div>
+            <div class="toggle-row" style="margin-bottom:16px">
+              <label class="toggle"><input type="checkbox" id="ensembleToggle"/><span class="toggle-track"></span></label>
+              Use Ensemble (all models averaged — most accurate)
+            </div>
+            <button class="btn btn-primary btn-full" id="classifyBtn" disabled onclick="classifyImage()">
+              <span>🔍</span> Detect Disease
+            </button>
+          </div>
+        </div>
+        <div id="classifyResult">
+          <div class="card empty" style="padding:60px 20px">
+            <span class="empty-icon">🌱</span>
+            <div style="font-size:1rem;font-weight:600;margin-bottom:8px;color:var(--text)">Ready to Analyze</div>
+            <p>Upload a clear photo of a plant leaf or crop to detect diseases and get treatment recommendations</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ BATCH ══ -->
+    <div class="page" id="page-batch">
+      <div class="g2">
+        <div class="card">
+          <div class="card-title">Batch Upload (up to 20 images)</div>
+          <div class="drop-zone" id="dz-batch">
+            <input type="file" id="fi-batch" accept="image/*" multiple/>
+            <span class="dz-icon">📦</span>
+            <div class="dz-title">Drop multiple plant images</div>
+            <div class="dz-sub"><span>Click to browse</span> — select up to 20 files</div>
+          </div>
+          <div id="batchFileList" style="margin-top:12px"></div>
+          <div class="form-group" style="margin-top:14px">
+            <div class="form-label">Model</div>
+            <select class="form-select" id="batchModel">
+              <option value="">Auto (Active)</option>
+              <option value="random_forest">Random Forest</option>
+              <option value="gradient_boosting">Gradient Boosting</option>
+              <option value="svm">SVM</option>
+              <option value="knn">KNN</option>
+              <option value="logistic_regression">Logistic Regression</option>
+            </select>
+          </div>
+          <div class="toggle-row" style="margin-bottom:16px">
+            <label class="toggle"><input type="checkbox" id="batchEnsemble"/><span class="toggle-track"></span></label>
+            Use Ensemble (all models averaged)
+          </div>
+          <button class="btn btn-primary btn-full" id="batchBtn" disabled onclick="runBatch()"><span>�</span> Run Batch Detection</button>
+        </div>
+        <div class="card"><div class="card-title">Batch Results</div><div id="batchResults"><div class="empty"><span class="empty-icon">📦</span><p>No results yet</p></div></div></div>
+      </div>
+    </div>
+
+    <!-- ══ URL ══ -->
+    <div class="page" id="page-url">
+      <div class="g2">
+        <div class="card">
+          <div class="card-title">Classify from URL</div>
+          <div class="form-group"><div class="form-label">Image URL</div><input class="form-input" type="url" id="urlInput" placeholder="https://example.com/leaf.jpg"/></div>
+          <div class="form-group"><div class="form-label">Model</div>
+            <select class="form-select" id="urlModel">
+              <option value="">Auto</option><option value="random_forest">Random Forest</option>
+              <option value="gradient_boosting">Gradient Boosting</option><option value="svm">SVM</option>
+            </select>
+          </div>
+          <div class="toggle-row" style="margin-bottom:16px">
+            <label class="toggle"><input type="checkbox" id="urlEnsemble"/><span class="toggle-track"></span></label>Use Ensemble
+          </div>
+          <button class="btn btn-primary btn-full" onclick="classifyUrl()"><span>🌐</span> Classify URL</button>
+        </div>
+        <div class="card" id="urlResult"><div class="empty"><span class="empty-icon">🌐</span><p>Enter a URL to classify</p></div></div>
+      </div>
+    </div>
+
+    <!-- ══ HISTORY ══ -->
+    <div class="page" id="page-history">
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <select class="form-select" style="width:150px" id="histLabel" onchange="loadHistory(1)">
+            <option value="">All Diseases</option>
+          </select>
+          <select class="form-select" style="width:150px" id="histModel" onchange="loadHistory(1)">
+            <option value="">All Models</option>
+            <option value="random_forest">Random Forest</option>
+            <option value="gradient_boosting">Gradient Boosting</option>
+            <option value="svm">SVM</option>
+            <option value="knn">KNN</option>
+            <option value="logistic_regression">Logistic Regression</option>
+            <option value="ensemble">Ensemble</option>
+          </select>
+          <select class="form-select" style="width:100px" id="histPer" onchange="loadHistory(1)">
+            <option value="10">10/page</option><option value="20">20/page</option><option value="50">50/page</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" onclick="loadHistory(1)">🔄 Refresh</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportCSV()">⬇️ Export CSV</button>
+          <span style="margin-left:auto;font-size:.76rem;color:var(--text3)" id="histCount"></span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Thumb</th><th>Filename</th><th>Disease</th><th>Confidence</th><th>Model</th><th>Speed</th><th>Date</th><th></th></tr></thead>
+            <tbody id="histBody"><tr><td colspan="9"><div class="loading-state"><div class="loader loader-lg"></div></div></td></tr></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="histPagination"></div>
+      </div>
+    </div>
+
+    <!-- ══ ANALYTICS ══ -->
+    <div class="page" id="page-analytics">
+
+      <!-- KPI ROW -->
+      <div class="g4" style="margin-bottom:20px" id="an-kpis">
+        <div class="stat-card" style="--accent-color:var(--accent)"><div class="stat-icon">🖼️</div><div class="stat-value" id="an-total">—</div><div class="stat-label">Total Scans</div><div class="stat-sub" id="an-total-sub"></div></div>
+        <div class="stat-card" style="--accent-color:var(--green)"><div class="stat-icon">✅</div><div class="stat-value" id="an-healthy">—</div><div class="stat-label">Healthy Plants</div><div class="stat-sub" id="an-healthy-sub"></div></div>
+        <div class="stat-card" style="--accent-color:var(--red)"><div class="stat-icon">🦠</div><div class="stat-value" id="an-diseased">—</div><div class="stat-label">Diseased Plants</div><div class="stat-sub" id="an-diseased-sub"></div></div>
+        <div class="stat-card" style="--accent-color:var(--yellow)"><div class="stat-icon">🎯</div><div class="stat-value" id="an-avgconf">—</div><div class="stat-label">Avg Confidence</div><div class="stat-sub" id="an-conf-sub"></div></div>
+      </div>
+
+      <!-- TABS -->
+      <div class="tabs" id="an-tabs">
+        <button class="tab active" onclick="switchTab('analytics','overview',this)">📊 Overview</button>
+        <button class="tab" onclick="switchTab('analytics','timeline',this)">📅 Timeline</button>
+        <button class="tab" onclick="switchTab('analytics','diseases',this)">🦠 Diseases</button>
+        <button class="tab" onclick="switchTab('analytics','models',this)">🤖 Models</button>
+        <button class="tab" onclick="switchTab('analytics','confidence',this)">🎯 Confidence</button>
+        <button class="tab" onclick="switchTab('analytics','performance',this)">⚡ Performance</button>
+      </div>
+
+      <!-- TAB: OVERVIEW -->
+      <div class="tab-panel active" id="analytics-overview">
+        <div class="g3" style="margin-bottom:18px">
+          <div class="card" style="grid-column:span 2">
+            <div class="card-title">Disease Distribution — Doughnut</div>
+            <div style="display:flex;align-items:center;gap:20px">
+              <div style="position:relative;height:260px;width:260px;flex-shrink:0"><canvas id="chartDoughnut"></canvas></div>
+              <div id="doughnutLegend" style="flex:1"></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Severity Breakdown</div>
+            <div style="position:relative;height:260px"><canvas id="chartSeverityPie"></canvas></div>
+          </div>
+        </div>
+        <div class="g2" style="margin-bottom:18px">
+          <div class="card">
+            <div class="card-title">Confidence by Disease — Radar</div>
+            <div style="position:relative;height:280px"><canvas id="chartRadar"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Detection Counts — Horizontal Bar</div>
+            <div style="position:relative;height:280px"><canvas id="chartHBar"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Disease Breakdown — Detailed Table</div>
+          <div id="labelBreakdown"></div>
+        </div>
+      </div>
+
+      <!-- TAB: TIMELINE -->
+      <div class="tab-panel" id="analytics-timeline">
+        <div class="card" style="margin-bottom:18px">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+            <div class="card-title" style="margin:0">Daily Detections</div>
+            <select class="form-select" style="width:110px" id="tlDays" onchange="loadTimeline()">
+              <option value="7">7 days</option><option value="14">14 days</option>
+              <option value="30">30 days</option><option value="60">60 days</option><option value="90">90 days</option>
+            </select>
+            <div style="margin-left:auto;display:flex;gap:8px">
+              <button class="btn btn-secondary btn-sm" onclick="setChartType('tlFull','bar')">Bar</button>
+              <button class="btn btn-secondary btn-sm" onclick="setChartType('tlFull','line')">Line</button>
+            </div>
+          </div>
+          <div style="position:relative;height:320px"><canvas id="chartTLFull"></canvas></div>
+        </div>
+        <div class="g2" style="margin-bottom:18px">
+          <div class="card">
+            <div class="card-title">Confidence Trend Over Time</div>
+            <div style="position:relative;height:220px"><canvas id="chartConfTrend"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Cumulative Detections</div>
+            <div style="position:relative;height:220px"><canvas id="chartCumulative"></canvas></div>
+          </div>
+        </div>
+        <div class="g2">
+          <div class="card">
+            <div class="card-title">7-Day Moving Average</div>
+            <div style="position:relative;height:200px"><canvas id="chartMovingAvg"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Daily Stats Summary</div>
+            <div id="dailyStatsSummary" style="max-height:220px;overflow-y:auto"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: DISEASES -->
+      <div class="tab-panel" id="analytics-diseases">
+        <div class="g2" style="margin-bottom:18px">
+          <div class="card">
+            <div class="card-title">Detection Count per Disease</div>
+            <div style="position:relative;height:300px"><canvas id="chartLabelBar"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Avg / Min / Max Confidence per Disease</div>
+            <div style="position:relative;height:300px"><canvas id="chartLabelConf"></canvas></div>
+          </div>
+        </div>
+        <div class="g2" style="margin-bottom:18px">
+          <div class="card">
+            <div class="card-title">Disease Severity Heatmap</div>
+            <div id="severityHeatmap"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Top Diseases — Polar Area</div>
+            <div style="position:relative;height:280px"><canvas id="chartPolar"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Disease Risk Matrix</div>
+          <div id="riskMatrix"></div>
+        </div>
+      </div>
+
+      <!-- TAB: MODELS -->
+      <div class="tab-panel" id="analytics-models">
+        <div class="g2" style="margin-bottom:18px">
+          <div class="card">
+            <div class="card-title">Model Training Accuracy — Bar</div>
+            <div style="position:relative;height:260px"><canvas id="chartModelAccBar"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Model Accuracy — Radar Comparison</div>
+            <div style="position:relative;height:260px"><canvas id="chartModelRadar"></canvas></div>
+          </div>
+        </div>
+        <div class="g3" style="margin-bottom:18px">
+          <div class="card">
+            <div class="card-title">Model Usage Distribution</div>
+            <div style="position:relative;height:200px"><canvas id="chartModelUsagePie"></canvas></div>
+          </div>
+          <div class="card" style="grid-column:span 2">
+            <div class="card-title">Model Performance Details</div>
+            <div id="modelDetailTable"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Model Accuracy Progress Bars</div>
+          <div id="modelAccTable"></div>
+        </div>
+      </div>
+
+      <!-- TAB: CONFIDENCE -->
+      <div class="tab-panel" id="analytics-confidence">
+        <div class="g2" style="margin-bottom:18px">
+          <div class="card">
+            <div class="card-title">Confidence Score Distribution — Histogram</div>
+            <div style="position:relative;height:260px"><canvas id="chartConfHist"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Confidence Buckets — Pie</div>
+            <div style="position:relative;height:260px"><canvas id="chartConfBuckets"></canvas></div>
+          </div>
+        </div>
+        <div class="g2" style="margin-bottom:18px">
+          <div class="card">
+            <div class="card-title">High Confidence (≥80%) vs Low (&lt;50%) Over Time</div>
+            <div style="position:relative;height:220px"><canvas id="chartConfBands"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Confidence by Model — Box Plot Style</div>
+            <div style="position:relative;height:220px"><canvas id="chartConfByModel"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Confidence Leaderboard</div>
+          <div id="confLeaderboard"></div>
+        </div>
+      </div>
+
+      <!-- TAB: PERFORMANCE -->
+      <div class="tab-panel" id="analytics-performance">
+        <div class="g3" style="margin-bottom:18px">
+          <div class="stat-card" style="--accent-color:var(--cyan)"><div class="stat-icon">⚡</div><div class="stat-value" id="perf-avgms">—</div><div class="stat-label">Avg Speed</div></div>
+          <div class="stat-card" style="--accent-color:var(--green)"><div class="stat-icon">🏆</div><div class="stat-value" id="perf-minms">—</div><div class="stat-label">Fastest</div></div>
+          <div class="stat-card" style="--accent-color:var(--red)"><div class="stat-icon">🐢</div><div class="stat-value" id="perf-maxms">—</div><div class="stat-label">Slowest</div></div>
+        </div>
+        <div class="g2" style="margin-bottom:18px">
+          <div class="card">
+            <div class="card-title">Processing Time Distribution — Histogram</div>
+            <div style="position:relative;height:240px"><canvas id="chartProcTime"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Speed Over Time — Scatter</div>
+            <div style="position:relative;height:240px"><canvas id="chartSpeedScatter"></canvas></div>
+          </div>
+        </div>
+        <div class="g2">
+          <div class="card">
+            <div class="card-title">Processing Time by Model</div>
+            <div style="position:relative;height:220px"><canvas id="chartSpeedByModel"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Throughput — Scans per Hour</div>
+            <div style="position:relative;height:220px"><canvas id="chartThroughput"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ══ COMPARE MODELS ══ -->
+    <div class="page" id="page-compare">
+      <div class="g2">
+        <div class="card">
+          <div class="card-title">Upload Image for Model Comparison</div>
+          <div class="drop-zone" id="dz-compare">
+            <input type="file" id="fi-compare" accept="image/*"/>
+            <span class="dz-icon">⚖️</span>
+            <div class="dz-title">Drop image to compare all models</div>
+            <div class="dz-sub"><span>Click to browse</span></div>
+          </div>
+          <div class="preview-wrap" id="pw-compare"><img id="pi-compare" class="preview-img" src="" alt=""/></div>
+          <button class="btn btn-primary btn-full" style="margin-top:14px" id="compareBtn" disabled onclick="runCompare()"><span>⚖️</span> Compare All Models</button>
+        </div>
+        <div class="card" id="compareResults"><div class="empty"><span class="empty-icon">⚖️</span><p>Upload an image to compare models</p></div></div>
+      </div>
+      <div class="card" style="margin-top:18px;display:none" id="compareChartCard">
+        <div class="card-title">Model Confidence Comparison (All Diseases)</div>
+        <div class="chart-box-xl"><canvas id="chartCompare"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ══ IMAGE ANALYZER ══ -->
+    <div class="page" id="page-analyzer">
+      <div class="g2">
+        <div class="card">
+          <div class="card-title">Deep Image Analysis</div>
+          <div class="drop-zone" id="dz-analyzer">
+            <input type="file" id="fi-analyzer" accept="image/*"/>
+            <span class="dz-icon">🔬</span>
+            <div class="dz-title">Drop image for feature analysis</div>
+            <div class="dz-sub"><span>Click to browse</span></div>
+          </div>
+          <div class="preview-wrap" id="pw-analyzer"><img id="pi-analyzer" class="preview-img" src="" alt=""/></div>
+          <button class="btn btn-primary btn-full" style="margin-top:14px" id="analyzerBtn" disabled onclick="runAnalyzer()"><span>🔬</span> Analyze Image</button>
+        </div>
+        <div id="analyzerResults"><div class="card empty"><span class="empty-icon">🔬</span><p>Upload an image to analyze</p></div></div>
+      </div>
+      <div id="analyzerCharts" style="display:none;margin-top:18px">
+        <div class="g2">
+          <div class="card"><div class="card-title">Feature Vector (Radar)</div><div class="chart-box"><canvas id="chartFeatRadar"></canvas></div></div>
+          <div class="card"><div class="card-title">RGB Channel Distribution</div><div class="chart-box"><canvas id="chartRGB"></canvas></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ML MODELS ══ -->
+    <div class="page" id="page-models">
+      <div class="card" style="margin-bottom:18px"><div class="card-title">Available Models</div><div id="modelsGrid" class="g3"></div></div>
+      <div class="card"><div class="card-title">Training Accuracy Comparison</div><div class="chart-box-lg"><canvas id="chartModelAcc"></canvas></div></div>
+    </div>
+
+    <!-- ══ DISEASE LIBRARY ══ -->
+    <div class="page" id="page-diseases">
+      <div class="card" style="margin-bottom:18px">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <input class="form-input" type="text" id="diseaseSearch" placeholder="Search diseases..." style="max-width:260px" oninput="renderDiseases()"/>
+          <div style="display:flex;gap:7px;flex-wrap:wrap" id="sevFilters">
+            <button class="model-pill active" data-sev="" onclick="setSev(this,'')">All</button>
+            <button class="model-pill" data-sev="none" onclick="setSev(this,'none')">✅ Healthy</button>
+            <button class="model-pill" data-sev="medium" onclick="setSev(this,'medium')">⚠️ Moderate</button>
+            <button class="model-pill" data-sev="high" onclick="setSev(this,'high')">🔴 Severe</button>
+            <button class="model-pill" data-sev="critical" onclick="setSev(this,'critical')">🚨 Critical</button>
+          </div>
+        </div>
+      </div>
+      <div id="diseasesGrid" class="g3"></div>
+    </div>
+
+    <!-- ══ SEARCH ══ -->
+    <div class="page" id="page-search">
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:flex;gap:10px">
+          <input class="form-input" type="text" id="searchInput" placeholder="Search by filename or disease..." style="flex:1" onkeydown="if(event.key==='Enter')runSearch()"/>
+          <button class="btn btn-primary" onclick="runSearch()"><span>🔎</span> Search</button>
+        </div>
+        <div style="margin-top:10px;font-size:.72rem;color:var(--text3)">
+          💡 Tip: Use Ctrl+K to quick search from anywhere | Ctrl+D for Dashboard | Ctrl+U to Upload | Ctrl+H for History
+        </div>
+      </div>
+      <div class="card"><div class="card-title">Results</div><div id="searchResults"><div class="empty"><span class="empty-icon">🔎</span><p>Enter a query to search</p></div></div></div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+const API = 'http://localhost:5000';
+const LABELS = ['healthy','leaf_blight','powdery_mildew','rust','leaf_spot','bacterial_wilt','mosaic_virus','downy_mildew','anthracnose','root_rot','nutrient_deficiency','pest_damage'];
+const COLORS = ['#22c55e','#ef4444','#f59e0b','#f97316','#ec4899','#dc2626','#8b5cf6','#06b6d4','#64748b','#a16207','#eab308','#84cc16'];
+const SEV_COLORS = {none:'#22c55e',medium:'#eab308',high:'#ef4444',critical:'#dc2626'};
+const SEV_LABELS = {none:'✅ Healthy',medium:'⚠️ Moderate',high:'🔴 Severe',critical:'🚨 Critical'};
+
+let S = {page:'dashboard', classifyFile:null, compareFile:null, analyzerFile:null, lastPredId:null, histPage:1, charts:{}, diseaseCache:{}, sevFilter:''};
+
+const PAGE_TITLES = {dashboard:'Dashboard',classify:'Classify Image',batch:'Batch Upload',url:'Classify URL',history:'Detection History',analytics:'Analytics',compare:'Compare Models',analyzer:'Image Analyzer',models:'ML Models',diseases:'Disease Library',search:'Search'};
+
+// ── NAVIGATION ──
+function nav(page) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const el=document.getElementById('page-'+page), ni=document.getElementById('nav-'+page);
+  if(el) el.classList.add('active');
+  if(ni) ni.classList.add('active');
+  S.page=page;
+  document.getElementById('pageTitle').textContent=PAGE_TITLES[page]||page;
+  closeSidebar();
+  onEnter(page);
+}
+function onEnter(p){
+  if(p==='dashboard') loadDashboard();
+  else if(p==='history') loadHistory(1);
+  else if(p==='analytics') loadAnalytics();
+  else if(p==='models') loadModels();
+  else if(p==='diseases') loadDiseases();
+}
+function refreshPage(){onEnter(S.page)}
+function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('overlay').classList.add('open')}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('open')}
+
+// ── THEME ──
+function toggleTheme(){
+  const l=document.body.classList.toggle('light');
+  document.getElementById('themeBtn').textContent=l?'☀️':'🌙';
+  localStorage.setItem('theme',l?'light':'dark');
+}
+
+// ── TOAST ──
+function toast(msg,type='info',dur=3500){
+  const icons={success:'✅',error:'❌',info:'ℹ️',warning:'⚠️'};
+  const el=document.createElement('div');
+  el.className=`toast toast-${type}`;
+  el.innerHTML=`<span>${icons[type]||'ℹ️'}</span><span>${esc(msg)}</span>`;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>{el.style.animation='toastOut .3s ease forwards';setTimeout(()=>el.remove(),300)},dur);
+}
+
+// ── API ──
+async function api(path,opts={}){
+  const r=await fetch(API+path,opts);
+  const d=await r.json().catch(()=>({}));
+  return{ok:r.ok,status:r.status,data:d};
+}
+
+// ── UTILS ──
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function fmtDate(d){return d?new Date(d).toLocaleString():'—'}
+function fmtMs(ms){return ms?`${parseFloat(ms).toFixed(0)}ms`:'—'}
+function destroyChart(k){if(S.charts[k]){S.charts[k].destroy();delete S.charts[k]}}
+function confColor(n){return n>=70?'var(--green)':n>=40?'var(--yellow)':'var(--red)'}
+function diseaseBadge(label){
+  const di=S.diseaseCache[label]||{};
+  const sc=SEV_COLORS[di.severity]||'var(--accent)';
+  return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:.68rem;font-weight:700;background:${sc}18;color:${sc};border:1px solid ${sc}30">${di.icon||''}${esc(label.replace(/_/g,' '))}</span>`;
+}
+function modelBadge(m){return `<span class="badge badge-blue">${esc(m||'—')}</span>`}
+function confBadge(c){const n=parseFloat(c);const col=confColor(n);return `<span style="color:${col};font-weight:700">${n.toFixed(1)}%</span>`}
+
+// ── KEYBOARD SHORTCUTS ──
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey||e.metaKey){
+    if(e.key==='k'){e.preventDefault();document.getElementById('quickSearch').focus()}
+    if(e.key==='u'){e.preventDefault();nav('classify')}
+    if(e.key==='h'){e.preventDefault();nav('history')}
+    if(e.key==='d'){e.preventDefault();nav('dashboard')}
+  }
+  if(e.key==='Escape'){closeSidebar();document.activeElement?.blur()}
+});
+
+// ── CHART DEFAULTS ──
+function cd(extra={}){
+  return{
+    responsive:true,maintainAspectRatio:false,animation:{duration:700},
+    plugins:{
+      legend:{labels:{color:'#94a3b8',font:{size:11},padding:14}},
+      tooltip:{backgroundColor:'#161628',titleColor:'#f1f5f9',bodyColor:'#94a3b8',borderColor:'#1f1f42',borderWidth:1,padding:10,cornerRadius:8},
+      ...(extra.plugins||{})
+    },
+    scales:{
+      x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#475569',font:{size:10}}},
+      y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#475569',font:{size:10}}},
+      ...(extra.scales||{})
+    },
+    ...Object.fromEntries(Object.entries(extra).filter(([k])=>!['plugins','scales'].includes(k)))
+  };
+}
+
+// ── HEALTH CHECK ──
+async function checkHealth(){
+  try{
+    const{ok,data}=await api('/health');
+    const dot=document.getElementById('statusDot'),txt=document.getElementById('statusText');
+    if(ok&&data.status==='healthy'){dot.className='status-dot online';txt.textContent='API Online'}
+    else if(ok){dot.className='status-dot degraded';txt.textContent='DB Degraded'}
+    else{dot.className='status-dot offline';txt.textContent='API Error'}
+  }catch{
+    document.getElementById('statusDot').className='status-dot offline';
+    document.getElementById('statusText').textContent='API Offline';
+  }
+}
+
+// ── DISEASE CACHE ──
+async function loadDiseaseCache(){
+  try{const{ok,data}=await api('/disease-info');if(ok)S.diseaseCache=data.data?.diseases||{}}catch{}
+}
+
+// ── DASHBOARD ──
+async function loadDashboard(){
+  try{
+    const[sR,tR,lR]=await Promise.all([api('/stats'),api('/stats/timeline?days=7'),api('/stats/labels')]);
+    if(sR.ok){
+      const s=sR.data.data;
+      document.getElementById('sc-total').textContent=s.total_predictions??'—';
+      document.getElementById('sc-today').textContent=s.today_predictions??'—';
+      document.getElementById('sc-week').textContent=s.week_predictions??'—';
+      document.getElementById('sc-ms').textContent=s.avg_processing_ms?s.avg_processing_ms+'ms':'—';
+      document.getElementById('sc-acc').textContent=s.feedback_accuracy?.accuracy_pct!=null?s.feedback_accuracy.accuracy_pct+'%':'—';
+      document.getElementById('badge-hist').textContent=s.total_predictions??0;
+      renderModelUsage(s.by_model||[]);
+    }
+    if(tR.ok) renderTimeline(tR.data.data?.timeline||[]);
+    if(lR.ok) renderDist(lR.data.data?.labels||[]);
+    loadRecent();
+  }catch(e){toast('Dashboard load failed: '+e.message,'error')}
+}
+
+function renderTimeline(data){
+  destroyChart('timeline');
+  const ctx=document.getElementById('chartTimeline').getContext('2d');
+  S.charts.timeline=new Chart(ctx,{type:'line',data:{
+    labels:data.map(d=>d.day),
+    datasets:[{label:'Detections',data:data.map(d=>d.count),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,.12)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#6366f1',pointBorderColor:'#0e0e20',pointBorderWidth:2}]
+  },options:cd({scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}})});
+}
+
+function renderDist(data){
+  destroyChart('dist');
+  const ctx=document.getElementById('chartDist').getContext('2d');
+  S.charts.dist=new Chart(ctx,{type:'doughnut',data:{
+    labels:data.map(d=>d.label.replace(/_/g,' ')),
+    datasets:[{data:data.map(d=>d.count),backgroundColor:COLORS,borderWidth:2,borderColor:'#0e0e20',hoverOffset:6}]
+  },options:{...cd(),cutout:'58%',plugins:{legend:{position:'right',labels:{color:'#94a3b8',font:{size:10},padding:10,boxWidth:12}}}}});
+}
+
+function renderModelUsage(data){
+  destroyChart('modelUsage');
+  const ctx=document.getElementById('chartModelUsage').getContext('2d');
+  S.charts.modelUsage=new Chart(ctx,{type:'bar',data:{
+    labels:data.map(d=>d.model_used),
+    datasets:[{data:data.map(d=>d.cnt),backgroundColor:COLORS,borderWidth:0,borderRadius:6}]
+  },options:cd({plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}})});
+}
+
+async function loadRecent(){
+  const el=document.getElementById('recentList');
+  try{
+    const{ok,data}=await api('/history?per_page=8');
+    if(!ok||!data.data?.data?.length){el.innerHTML='<div class="empty"><span class="empty-icon">📋</span><p>No detections yet</p></div>';return}
+    el.innerHTML=data.data.data.map(r=>`
+      <div class="list-row">
+        ${r.thumbnail?`<img src="${r.thumbnail}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0" alt=""/>`:'<div style="width:36px;height:36px;border-radius:6px;background:var(--surface3);flex-shrink:0"></div>'}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.image_name)}</div>
+          <div style="font-size:.7rem;color:var(--text3)">${fmtDate(r.created_at)}</div>
+        </div>
+        ${diseaseBadge(r.prediction_result)}
+        <span style="font-size:.72rem;color:var(--text3);flex-shrink:0">${parseFloat(r.confidence||0).toFixed(1)}%</span>
+      </div>`).join('');
+  }catch{el.innerHTML='<div class="alert alert-error">Failed to load</div>'}
+}
+</script>
+
+<script>
+// ── DROP ZONES ──
+function setupDZ(dzId,fiId,onFile){
+  const dz=document.getElementById(dzId),fi=document.getElementById(fiId);
+  fi.addEventListener('change',e=>{if(e.target.files[0])onFile(e.target.files[0])});
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over')});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/'))onFile(f)});
+}
+function showPreview(file,imgId,wrapId,metaId){
+  const r=new FileReader();
+  r.onload=e=>{
+    document.getElementById(imgId).src=e.target.result;
+    document.getElementById(wrapId).style.display='block';
+    if(metaId)document.getElementById(metaId).textContent=`${file.name} — ${(file.size/1024).toFixed(1)} KB`;
+  };
+  r.readAsDataURL(file);
+}
+
+setupDZ('dz-classify','fi-classify',f=>{
+  S.classifyFile=f;
+  showPreview(f,'pi-classify','pw-classify','pm-classify');
+  document.getElementById('classifyBtn').disabled=false;
+  document.getElementById('classifyResult').innerHTML='<div class="card empty"><span class="empty-icon">🌱</span><p>Click "Detect Disease" to analyze</p></div>';
+});
+document.querySelectorAll('.model-pill').forEach(p=>p.addEventListener('click',()=>{
+  document.querySelectorAll('.model-pill').forEach(x=>x.classList.remove('active'));p.classList.add('active');
+}));
+
+// ── CLASSIFY ──
+async function classifyImage(){
+  if(!S.classifyFile)return;
+  const btn=document.getElementById('classifyBtn');
+  btn.disabled=true;btn.innerHTML='<span class="loader"></span> Analyzing...';
+  const fd=new FormData();
+  fd.append('image',S.classifyFile);
+  const model=document.querySelector('.model-pill.active')?.dataset.model||'';
+  if(model)fd.append('model',model);
+  if(document.getElementById('ensembleToggle').checked)fd.append('ensemble','true');
+  try{
+    const{ok,data}=await api('/predict',{method:'POST',body:fd});
+    if(!ok){toast(data.error||'Detection failed','error');return}
+    S.lastPredId=data.data.id;
+    renderClassifyResult(data.data);
+    const cached=data.data.cached?' (cached)':'';
+    toast(`Detected: ${data.data.prediction.replace(/_/g,' ')} (${data.data.confidence}%)${cached}`,data.data.prediction==='healthy'?'success':'warning');
+    if(!data.data.cached)document.getElementById('badge-hist').textContent=parseInt(document.getElementById('badge-hist').textContent||0)+1;
+  }catch(e){toast('Cannot reach API: '+e.message,'error')}
+  finally{btn.disabled=false;btn.innerHTML='<span>🔍</span> Detect Disease'}
+}
+
+function renderClassifyResult(d){
+  const di=d.disease_info||{};
+  const sc=di.color||SEV_COLORS[di.severity]||'var(--accent)';
+  const sev=di.severity||'none';
+
+  let html=`
+    <div class="result-header" style="border-color:${sc}40;background:linear-gradient(135deg,${sc}12,${sc}06)">
+      <div class="result-icon">${di.icon||'🌿'}</div>
+      <div class="result-label">Detection Result</div>
+      <div class="result-value" style="color:${sc}">${esc(di.status||d.prediction)}</div>
+      <div style="margin:6px 0"><span class="badge sev-${sev}" style="font-size:.75rem;padding:4px 14px">${SEV_LABELS[sev]||sev}</span></div>
+      <div class="result-conf">Confidence: <strong style="color:${confColor(d.confidence)}">${d.confidence}%</strong></div>
+      <div class="result-meta">Model: ${esc(d.model_used)} &nbsp;|&nbsp; ${fmtMs(d.processing_time_ms)} &nbsp;|&nbsp; ID #${d.id}</div>
+    </div>`;
+
+  // Disease info panel
+  if(di.description){
+    html+=`<div class="card" style="margin-bottom:14px;border-left:3px solid ${sc}">
+      <div style="font-size:.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:600">📋 Disease Analysis</div>
+      <p style="font-size:.84rem;line-height:1.7;color:var(--text2);margin-bottom:14px">${esc(di.description)}</p>`;
+
+    if(di.affected_parts?.length){
+      html+=`<div style="margin-bottom:12px"><div style="font-size:.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;font-weight:600">🎯 Affected Parts</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${di.affected_parts.map(p=>`<span class="badge badge-orange">${esc(p)}</span>`).join('')}</div></div>`;
+    }
+
+    if(di.causes?.length){
+      html+=`<div style="margin-bottom:12px"><div style="font-size:.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;font-weight:600">🔍 Causes</div>
+      <ul style="list-style:none;padding:0;font-size:.82rem;color:var(--text2)">${di.causes.map(c=>`<li style="padding:3px 0;display:flex;gap:8px"><span style="color:${sc}">▸</span>${esc(c)}</li>`).join('')}</ul></div>`;
+    }
+
+    if(di.immediate_actions?.length){
+      html+=`<div style="margin-bottom:12px;padding:12px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);border-radius:8px">
+      <div style="font-size:.7rem;color:#fca5a5;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;font-weight:700">⚡ Immediate Actions</div>
+      ${di.immediate_actions.map((a,i)=>`<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid rgba(239,68,68,.1);font-size:.82rem"><span style="color:#fca5a5;font-weight:700;min-width:18px">${i+1}.</span><span style="color:var(--text)">${esc(a)}</span></div>`).join('')}</div>`;
+    }
+
+    if(di.chemical_treatments?.length){
+      html+=`<div style="margin-bottom:12px"><div style="font-size:.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;font-weight:600">💊 Chemical Treatments</div>
+      ${di.chemical_treatments.map(t=>`<div style="padding:8px 10px;background:var(--surface2);border-radius:6px;margin-bottom:6px;border-left:3px solid ${sc};font-size:.8rem;color:var(--text)">${esc(t)}</div>`).join('')}</div>`;
+    }
+
+    if(di.organic_treatments?.length){
+      html+=`<div style="margin-bottom:12px"><div style="font-size:.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;font-weight:600">🌿 Organic / Biological Treatments</div>
+      ${di.organic_treatments.map(t=>`<div style="padding:8px 10px;background:rgba(34,197,94,.06);border-radius:6px;margin-bottom:6px;border-left:3px solid var(--green);font-size:.8rem;color:var(--text)">${esc(t)}</div>`).join('')}</div>`;
+    }
+
+    if(di.fertilizer_schedule){
+      html+=`<div style="margin-bottom:12px;padding:10px;background:rgba(234,179,8,.06);border:1px solid rgba(234,179,8,.15);border-radius:8px">
+      <div style="font-size:.7rem;color:var(--yellow);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;font-weight:700">🌱 Fertilizer Schedule</div>
+      <p style="font-size:.82rem;color:var(--text)">${esc(di.fertilizer_schedule)}</p></div>`;
+    }
+
+    if(di.prevention){
+      html+=`<div style="padding:10px;background:rgba(6,182,212,.06);border:1px solid rgba(6,182,212,.15);border-radius:8px;margin-bottom:12px">
+      <div style="font-size:.7rem;color:var(--cyan);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;font-weight:700">🛡️ Prevention</div>
+      <p style="font-size:.82rem;color:var(--text)">${esc(di.prevention)}</p></div>`;
+    }
+
+    if(di.recovery_time||di.economic_impact){
+      html+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${di.recovery_time?`<div style="padding:8px;background:var(--surface2);border-radius:6px;font-size:.78rem"><div style="color:var(--text3);margin-bottom:2px">⏱ Recovery Time</div><div style="color:var(--text);font-weight:600">${esc(di.recovery_time)}</div></div>`:''}
+      ${di.economic_impact?`<div style="padding:8px;background:var(--surface2);border-radius:6px;font-size:.78rem"><div style="color:var(--text3);margin-bottom:2px">💰 Economic Impact</div><div style="color:var(--red);font-weight:600">${esc(di.economic_impact)}</div></div>`:''}</div>`;
+    }
+    html+=`</div>`;
+  }
+
+  // Top 3
+  html+=`<div class="card" style="margin-bottom:14px"><div class="card-title">Top 3 Predictions</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+  ${(d.top3||[]).map(t=>{const tdi=S.diseaseCache[t.label]||{};const tc=tdi.color||SEV_COLORS[tdi.severity]||'var(--accent)';return`
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;border-top:2px solid ${tc}">
+      <div style="font-size:1.4rem;margin-bottom:4px">${tdi.icon||'🌿'}</div>
+      <div style="font-size:.72rem;color:var(--text3);margin-bottom:4px">${esc(t.label.replace(/_/g,' '))}</div>
+      <div style="font-size:1.1rem;font-weight:800;color:${tc}">${t.probability}%</div>
+      <div class="conf-bar" style="margin-top:6px"><div class="conf-fill" style="width:${t.probability}%;background:${tc}"></div></div>
+    </div>`}).join('')}
+  </div></div>`;
+
+  // Proba chart
+  html+=`<div class="card" style="margin-bottom:14px"><div class="card-title">All Disease Probabilities</div><div class="chart-box-sm"><canvas id="chartProba"></canvas></div></div>`;
+
+  // Image details
+  const m=d.image_metadata||{};
+  html+=`<div class="card" style="margin-bottom:14px"><div class="card-title">Image Details</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.8rem">
+    <div><span style="color:var(--text3)">Size:</span> ${m.original_width}×${m.original_height}px</div>
+    <div><span style="color:var(--text3)">Megapixels:</span> ${m.megapixels}</div>
+    <div><span style="color:var(--text3)">File Size:</span> ${m.file_size_label}</div>
+    <div><span style="color:var(--text3)">Aspect Ratio:</span> ${m.aspect_ratio}</div>
+    <div style="grid-column:1/-1"><span style="color:var(--text3)">SHA-256:</span> <span style="font-family:monospace;font-size:.7rem">${(m.file_hash||'').slice(0,32)}...</span></div>
+  </div></div>`;
+
+  document.getElementById('classifyResult').innerHTML=html;
+
+  // Render proba chart
+  destroyChart('proba');
+  const ctx=document.getElementById('chartProba')?.getContext('2d');
+  if(ctx){
+    const proba=d.all_probabilities||{};
+    const pColors=Object.keys(proba).map(k=>(S.diseaseCache[k]?.color||SEV_COLORS[S.diseaseCache[k]?.severity]||'#6366f1')+'cc');
+    S.charts.proba=new Chart(ctx,{type:'bar',data:{
+      labels:Object.keys(proba).map(k=>k.replace(/_/g,' ')),
+      datasets:[{data:Object.values(proba),backgroundColor:pColors,borderWidth:0,borderRadius:5}]
+    },options:cd({indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{max:100,ticks:{callback:v=>v+'%'}}}})});
+  }
+}
+</script>
+
+<script>
+// ── BATCH ──
+let batchFiles=[];
+setupDZ('dz-batch','fi-batch',()=>{});
+document.getElementById('fi-batch').addEventListener('change',e=>{
+  batchFiles=Array.from(e.target.files).slice(0,20);
+  const el=document.getElementById('batchFileList');
+  el.innerHTML=batchFiles.map((f,i)=>`<div class="list-row"><span style="color:var(--text3);font-size:.76rem">${i+1}.</span><span style="flex:1;font-size:.8rem">${esc(f.name)}</span><span style="font-size:.72rem;color:var(--text3)">${(f.size/1024).toFixed(1)}KB</span></div>`).join('');
+  document.getElementById('batchBtn').disabled=batchFiles.length===0;
+});
+
+async function runBatch(){
+  if(!batchFiles.length)return;
+  const btn=document.getElementById('batchBtn');
+  btn.disabled=true;btn.innerHTML='<span class="loader"></span> Processing...';
+  const fd=new FormData();
+  batchFiles.forEach(f=>fd.append('images[]',f));
+  const model=document.getElementById('batchModel').value;
+  if(model)fd.append('model',model);
+  if(document.getElementById('batchEnsemble').checked)fd.append('ensemble','true');
+  try{
+    const{ok,data}=await api('/predict/batch',{method:'POST',body:fd});
+    const el=document.getElementById('batchResults');
+    if(!ok){el.innerHTML=`<div class="alert alert-error">${esc(data.error||'Batch failed')}</div>`;return}
+    const d=data.data;
+    const avgConf=d.results.length?d.results.reduce((s,r)=>s+r.confidence,0)/d.results.length:0;
+    el.innerHTML=`<div class="alert alert-success" style="margin-bottom:12px">✅ ${d.succeeded}/${d.total} succeeded${d.failed?`, ${d.failed} failed`:''} | Avg Confidence: ${avgConf.toFixed(1)}%</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>#</th><th>Thumb</th><th>File</th><th>Disease</th><th>Confidence</th><th>Model</th><th>Speed</th></tr></thead>
+      <tbody>${d.results.map((r,i)=>`<tr><td>${i+1}</td><td>${r.thumbnail?`<img src="${r.thumbnail}" style="width:36px;height:36px;border-radius:6px;object-fit:cover" alt=""/>`:'—'}</td><td class="td-clip">${esc(r.filename)}</td><td>${diseaseBadge(r.prediction)}</td><td>${confBadge(r.confidence)}</td><td>${modelBadge(r.model_used)}</td><td style="color:var(--text3)">${fmtMs(r.processing_time_ms)}</td></tr>`).join('')}
+      ${d.errors.map(e=>`<tr><td>—</td><td>—</td><td class="td-clip">${esc(e.filename)}</td><td colspan="4" style="color:var(--red)">${esc(e.error)}</td></tr>`).join('')}</tbody>
+    </table></div>`;
+    toast(`Batch done: ${d.succeeded} detected`,'success');
+  }catch{toast('Batch request failed','error')}
+  finally{btn.disabled=false;btn.innerHTML='<span>🚀</span> Run Batch Detection'}
+}
+
+// ── URL CLASSIFY ──
+async function classifyUrl(){
+  const url=document.getElementById('urlInput').value.trim();
+  if(!url){toast('Enter an image URL','warning');return}
+  const model=document.getElementById('urlModel').value;
+  const ensemble=document.getElementById('urlEnsemble').checked;
+  const el=document.getElementById('urlResult');
+  el.innerHTML='<div class="loading-state"><div class="loader loader-lg"></div><span>Fetching & analyzing...</span></div>';
+  try{
+    const{ok,data}=await api('/predict/url',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,model:model||undefined,ensemble})});
+    if(!ok){el.innerHTML=`<div class="alert alert-error">${esc(data.error||'Failed')}</div>`;return}
+    const d=data.data;const di=d.disease_info||{};const sc=di.color||'var(--accent)';
+    el.innerHTML=`<div class="result-header" style="border-color:${sc}40">
+      <div class="result-icon">${di.icon||'🌿'}</div>
+      <div class="result-value" style="color:${sc}">${esc(di.status||d.prediction)}</div>
+      <div class="result-conf">Confidence: <strong style="color:${confColor(d.confidence)}">${d.confidence}%</strong></div>
+      <div class="result-meta">Model: ${esc(d.model_used)} | ${fmtMs(d.processing_time_ms)}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px">
+    ${(d.top3||[]).map(t=>{const tc=S.diseaseCache[t.label]?.color||'var(--accent)';return`<div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center;border-top:2px solid ${tc}"><div style="font-size:.72rem;color:var(--text3)">${esc(t.label.replace(/_/g,' '))}</div><div style="font-size:1rem;font-weight:800;color:${tc}">${t.probability}%</div></div>`}).join('')}
+    </div>
+    ${d.thumbnail?`<img src="${d.thumbnail}" style="margin-top:12px;border-radius:8px;max-width:100%;max-height:160px" alt="thumb"/>`:''}`;
+    toast(`URL: ${d.prediction.replace(/_/g,' ')}`,'success');
+  }catch{el.innerHTML='<div class="alert alert-error">Cannot reach API</div>'}
+}
+
+// ── HISTORY ──
+async function loadHistory(page){
+  S.histPage=page||S.histPage;
+  const per=document.getElementById('histPer').value||10;
+  const label=document.getElementById('histLabel').value;
+  const model=document.getElementById('histModel').value;
+  const tbody=document.getElementById('histBody');
+  tbody.innerHTML='<tr><td colspan="9"><div class="loading-state"><div class="loader loader-lg"></div></div></td></tr>';
+  let url=`/history?page=${S.histPage}&per_page=${per}`;
+  if(label)url+=`&label=${encodeURIComponent(label)}`;
+  if(model)url+=`&model=${encodeURIComponent(model)}`;
+  try{
+    const{ok,data}=await api(url);
+    if(!ok){tbody.innerHTML=`<tr><td colspan="9"><div class="alert alert-error">${esc(data.error)}</div></td></tr>`;return}
+    const d=data.data;
+    document.getElementById('histCount').textContent=`${d.total} total`;
+    if(!d.data.length){tbody.innerHTML='<tr><td colspan="9"><div class="empty"><span class="empty-icon">📋</span><p>No detections found</p></div></td></tr>';return}
+    tbody.innerHTML=d.data.map(r=>`<tr>
+      <td style="color:var(--text3)">#${r.id}</td>
+      <td>${r.thumbnail?`<img src="${r.thumbnail}" style="width:36px;height:36px;border-radius:6px;object-fit:cover" alt=""/>`:''}</td>
+      <td class="td-clip" title="${esc(r.image_name)}">${esc(r.image_name)}</td>
+      <td>${diseaseBadge(r.prediction_result)}</td>
+      <td>${confBadge(r.confidence)}</td>
+      <td>${modelBadge(r.model_used)}</td>
+      <td style="color:var(--text3)">${fmtMs(r.processing_time_ms)}</td>
+      <td style="color:var(--text3);white-space:nowrap;font-size:.75rem">${fmtDate(r.created_at)}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deletePred(${r.id})">🗑</button></td>
+    </tr>`).join('');
+    renderPagination('histPagination',d.page,d.total_pages,'loadHistory');
+    const sel=document.getElementById('histLabel');
+    if(sel.options.length<=1)LABELS.forEach(l=>{const o=document.createElement('option');o.value=l;o.textContent=l.replace(/_/g,' ');sel.appendChild(o)});
+  }catch(e){tbody.innerHTML=`<tr><td colspan="9"><div class="alert alert-error">${esc(e.message)}</div></td></tr>`}
+}
+
+async function deletePred(id){
+  if(!confirm(`Delete detection #${id}?`))return;
+  const{ok,data}=await api(`/history/${id}`,{method:'DELETE'});
+  if(ok){toast(`Detection #${id} deleted`,'success');loadHistory()}
+  else toast(data.error||'Delete failed','error');
+}
+
+function renderPagination(cid,cur,total,fn){
+  const el=document.getElementById(cid);
+  if(total<=1){el.innerHTML='';return}
+  const b=(p,l,dis=false,act=false)=>`<button class="pg-btn${act?' active':''}" ${dis?'disabled':''} onclick="${fn}(${p})">${l}</button>`;
+  let h=b(cur-1,'‹',cur<=1);
+  const s=Math.max(1,cur-2),e=Math.min(total,cur+2);
+  if(s>1){h+=b(1,'1');if(s>2)h+='<span style="color:var(--text3);padding:0 4px">…</span>'}
+  for(let p=s;p<=e;p++)h+=b(p,p,false,p===cur);
+  if(e<total){if(e<total-1)h+='<span style="color:var(--text3);padding:0 4px">…</span>';h+=b(total,total)}
+  h+=b(cur+1,'›',cur>=total);
+  el.innerHTML=h;
+}
+
+function exportCSV(){
+  const label=document.getElementById('histLabel').value;
+  const model=document.getElementById('histModel').value;
+  let url=`${API}/export/csv`;
+  const p=[];if(label)p.push(`label=${encodeURIComponent(label)}`);if(model)p.push(`model=${encodeURIComponent(model)}`);
+  if(p.length)url+='?'+p.join('&');
+  const a=document.createElement('a');a.href=url;a.download=`detections_${new Date().toISOString().split('T')[0]}.csv`;a.click();
+  toast('CSV export started','success');
+}
+
+function quickSearchGo(e){
+  if(e.key==='Enter'){const q=document.getElementById('quickSearch').value.trim();if(q){nav('search');document.getElementById('searchInput').value=q;runSearch()}}
+}
+
+// ── SEARCH ──
+async function runSearch(){
+  const q=document.getElementById('searchInput').value.trim();
+  if(!q||q.length<2){toast('Enter at least 2 characters','warning');return}
+  const el=document.getElementById('searchResults');
+  el.innerHTML='<div class="loading-state"><div class="loader loader-lg"></div></div>';
+  try{
+    const{ok,data}=await api(`/search?q=${encodeURIComponent(q)}&limit=50`);
+    if(!ok){el.innerHTML=`<div class="alert alert-error">${esc(data.error||'Search failed')}</div>`;return}
+    const results=data.data?.results||[];
+    if(!results.length){el.innerHTML='<div class="empty"><span class="empty-icon">🔎</span><p>No results found</p></div>';return}
+    el.innerHTML=`<div style="margin-bottom:12px;color:var(--text3);font-size:.82rem">Found ${results.length} result${results.length>1?'s':''} for "${esc(q)}"</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>ID</th><th>Filename</th><th>Disease</th><th>Confidence</th><th>Model</th><th>Date</th><th></th></tr></thead>
+      <tbody>${results.map(r=>`<tr>
+        <td style="color:var(--text3)">#${r.id}</td>
+        <td class="td-clip" title="${esc(r.image_name)}">${esc(r.image_name)}</td>
+        <td>${diseaseBadge(r.prediction_result)}</td>
+        <td>${confBadge(r.confidence)}</td>
+        <td>${modelBadge(r.model_used)}</td>
+        <td style="color:var(--text3);font-size:.75rem">${fmtDate(r.created_at)}</td>
+        <td><button class="btn btn-secondary btn-sm" onclick="viewDetail(${r.id})">View</button></td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+  }catch(e){el.innerHTML=`<div class="alert alert-error">Search failed: ${esc(e.message)}</div>`}
+}
+
+async function viewDetail(id){
+  try{
+    const{ok,data}=await api(`/history/${id}`);
+    if(!ok){toast('Failed to load details','error');return}
+    const p=data.data?.prediction;
+    if(!p)return;
+    nav('classify');
+    setTimeout(()=>renderClassifyResult({
+      id:p.id,filename:p.image_name,prediction:p.prediction_result,
+      confidence:p.confidence,model_used:p.model_used,
+      top3:JSON.parse(p.top3_predictions||'[]'),
+      all_probabilities:JSON.parse(p.all_probabilities||'{}'),
+      processing_time_ms:p.processing_time_ms,
+      thumbnail:p.thumbnail,
+      image_metadata:{original_width:p.original_width,original_height:p.original_height,
+        file_size:p.file_size,file_size_label:size_label(p.file_size),
+        file_hash:p.file_hash,aspect_ratio:(p.original_width/Math.max(p.original_height,1)).toFixed(3),
+        megapixels:(p.original_width*p.original_height/1000000).toFixed(3)},
+      disease_info:S.diseaseCache[p.prediction_result]||{}
+    }),100);
+  }catch(e){toast('Error: '+e.message,'error')}
+}
+
+function size_label(n){
+  if(n<1024)return n+'B';
+  if(n<1048576)return(n/1024).toFixed(1)+'KB';
+  return(n/1048576).toFixed(1)+'MB';
+}
+</script>
+
+<script>
+// ── ANALYTICS ──
+async function loadAnalytics(){
+  try{
+    const[lR,tR,mR]=await Promise.all([api('/stats/labels'),api('/stats/timeline?days=7'),api('/models')]);
+    if(lR.ok){
+      const labels=lR.data.data?.labels||[];
+      renderDoughnut(labels);
+      renderSeverityPie(labels);
+      renderHBar(labels);
+      renderRadar(labels);
+      renderLabelBreakdown(labels);
+      renderLabelBar(labels);
+      renderLabelConf(labels);
+    }
+    if(tR.ok){const tl=tR.data.data?.timeline||[];renderTLFull(tl);renderConfTrend(tl)}
+    if(mR.ok)renderModelAccTable(mR.data.data?.training_stats||{});
+    renderProcTime();
+  }catch(e){toast('Analytics failed: '+e.message,'error')}
+}
+
+function renderDoughnut(labels){
+  destroyChart('doughnut');
+  const ctx=document.getElementById('chartDoughnut').getContext('2d');
+  S.charts.doughnut=new Chart(ctx,{type:'doughnut',data:{
+    labels:labels.map(l=>l.label.replace(/_/g,' ')),
+    datasets:[{data:labels.map(l=>l.count),backgroundColor:COLORS,borderWidth:2,borderColor:'#060612',hoverOffset:8}]
+  },options:{...cd(),cutout:'60%',plugins:{legend:{position:'right',labels:{color:'#94a3b8',font:{size:10},padding:10,boxWidth:12}}}}});
+}
+
+function renderRadar(labels){
+  destroyChart('radar');
+  const ctx=document.getElementById('chartRadar').getContext('2d');
+  S.charts.radar=new Chart(ctx,{type:'radar',data:{
+    labels:labels.map(l=>l.label.replace(/_/g,' ')),
+    datasets:[{label:'Avg Confidence',data:labels.map(l=>l.avg_confidence),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,.15)',pointBackgroundColor:'#6366f1',pointRadius:4,pointBorderColor:'#060612',pointBorderWidth:2}]
+  },options:{...cd(),scales:{r:{beginAtZero:true,max:100,grid:{color:'rgba(255,255,255,.06)'},ticks:{color:'#475569',backdropColor:'transparent',font:{size:9}},pointLabels:{color:'#94a3b8',font:{size:9}}}}}});
+}
+
+function renderSeverityPie(labels){
+  destroyChart('severityPie');
+  const ctx=document.getElementById('chartSeverityPie').getContext('2d');
+  const sevCounts={none:0,medium:0,high:0,critical:0};
+  labels.forEach(l=>{
+    const di=S.diseaseCache[l.label]||{};
+    const sev=di.severity||'none';
+    sevCounts[sev]=(sevCounts[sev]||0)+l.count;
+  });
+  S.charts.severityPie=new Chart(ctx,{type:'pie',data:{
+    labels:['Healthy','Moderate','Severe','Critical'],
+    datasets:[{data:[sevCounts.none,sevCounts.medium,sevCounts.high,sevCounts.critical],
+      backgroundColor:[SEV_COLORS.none,SEV_COLORS.medium,SEV_COLORS.high,SEV_COLORS.critical],
+      borderWidth:2,borderColor:'#060612',hoverOffset:6}]
+  },options:cd({plugins:{legend:{position:'bottom'}}})});
+}
+
+function renderHBar(labels){
+  destroyChart('hbar');
+  const ctx=document.getElementById('chartHBar').getContext('2d');
+  const sorted=[...labels].sort((a,b)=>b.count-a.count).slice(0,8);
+  S.charts.hbar=new Chart(ctx,{type:'bar',data:{
+    labels:sorted.map(l=>l.label.replace(/_/g,' ')),
+    datasets:[{label:'Detections',data:sorted.map(l=>l.count),
+      backgroundColor:sorted.map((_,i)=>COLORS[i%COLORS.length]),borderWidth:0,borderRadius:6}]
+  },options:cd({indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}}})});
+}
+
+function renderLabelBreakdown(labels){
+  const el=document.getElementById('labelBreakdown');
+  const max=Math.max(...labels.map(l=>l.count),1);
+  el.innerHTML=labels.map((l,i)=>{
+    const di=S.diseaseCache[l.label]||{};const sc=di.color||COLORS[i%COLORS.length];
+    return`<div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+        <span style="font-size:.82rem;font-weight:600;display:flex;align-items:center;gap:6px">${di.icon||''}${esc(l.label.replace(/_/g,' '))}</span>
+        <span style="font-size:.76rem;color:var(--text3)">${l.count} detections &nbsp;|&nbsp; avg ${l.avg_confidence}%</span>
+      </div>
+      <div class="progress"><div class="progress-fill" style="width:${(l.count/max*100).toFixed(1)}%;background:${sc}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderLabelBar(labels){
+  destroyChart('labelBar');
+  const ctx=document.getElementById('chartLabelBar').getContext('2d');
+  S.charts.labelBar=new Chart(ctx,{type:'bar',data:{
+    labels:labels.map(l=>l.label.replace(/_/g,' ')),
+    datasets:[{label:'Count',data:labels.map(l=>l.count),backgroundColor:COLORS,borderWidth:0,borderRadius:6}]
+  },options:cd({plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}})});
+}
+
+function renderLabelConf(labels){
+  destroyChart('labelConf');
+  const ctx=document.getElementById('chartLabelConf').getContext('2d');
+  S.charts.labelConf=new Chart(ctx,{type:'bar',data:{
+    labels:labels.map(l=>l.label.replace(/_/g,' ')),
+    datasets:[
+      {label:'Avg',data:labels.map(l=>l.avg_confidence),backgroundColor:'rgba(99,102,241,.7)',borderRadius:4},
+      {label:'Min',data:labels.map(l=>l.min_confidence),backgroundColor:'rgba(239,68,68,.5)',borderRadius:4},
+      {label:'Max',data:labels.map(l=>l.max_confidence),backgroundColor:'rgba(34,197,94,.5)',borderRadius:4},
+    ]
+  },options:cd({scales:{y:{beginAtZero:true,max:100}}})});
+}
+
+async function loadTimeline(){
+  const days=document.getElementById('tlDays').value;
+  const{ok,data}=await api(`/stats/timeline?days=${days}`);
+  if(ok){const tl=data.data?.timeline||[];renderTLFull(tl);renderConfTrend(tl)}
+}
+
+function renderTLFull(data){
+  destroyChart('tlFull');
+  const ctx=document.getElementById('chartTLFull').getContext('2d');
+  S.charts.tlFull=new Chart(ctx,{type:'bar',data:{
+    labels:data.map(d=>d.day),
+    datasets:[{label:'Detections',data:data.map(d=>d.count),backgroundColor:'rgba(99,102,241,.6)',borderColor:'#6366f1',borderWidth:1,borderRadius:6}]
+  },options:cd({scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}})});
+}
+
+function renderConfTrend(data){
+  destroyChart('confTrend');
+  const ctx=document.getElementById('chartConfTrend').getContext('2d');
+  S.charts.confTrend=new Chart(ctx,{type:'line',data:{
+    labels:data.map(d=>d.day),
+    datasets:[{label:'Avg Confidence %',data:data.map(d=>d.avg_confidence),borderColor:'#06b6d4',backgroundColor:'rgba(6,182,212,.1)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#06b6d4',pointBorderColor:'#060612',pointBorderWidth:2}]
+  },options:cd({scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%'}}}})});
+}
+
+function renderModelAccTable(stats){
+  const el=document.getElementById('modelAccTable');
+  if(!Object.keys(stats).length){el.innerHTML='<div class="empty"><p>No model stats</p></div>';return}
+  el.innerHTML=Object.entries(stats).map(([name,s])=>`
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+        <span style="font-size:.84rem;font-weight:600">${esc(name)}</span>
+        <span style="font-size:.8rem;color:var(--green);font-weight:700">${(s.train_accuracy*100).toFixed(1)}%</span>
+      </div>
+      <div class="progress"><div class="progress-fill" style="width:${(s.train_accuracy*100).toFixed(1)}%;background:linear-gradient(90deg,var(--accent),var(--cyan))"></div></div>
+      <div style="font-size:.7rem;color:var(--text3);margin-top:3px">Trained in ${s.train_time_sec}s on ${s.n_samples} samples</div>
+    </div>`).join('');
+}
+
+async function renderProcTime(){
+  destroyChart('procTime');
+  const{ok,data}=await api('/history?per_page=50');
+  if(!ok)return;
+  const times=(data.data?.data||[]).map(r=>r.processing_time_ms).filter(Boolean);
+  if(!times.length)return;
+  const bins=[0,50,100,200,300,500,1000];
+  const counts=Array(bins.length-1).fill(0);
+  times.forEach(t=>{for(let i=0;i<bins.length-1;i++){if(t>=bins[i]&&t<bins[i+1]){counts[i]++;break}}});
+  const ctx=document.getElementById('chartProcTime').getContext('2d');
+  S.charts.procTime=new Chart(ctx,{type:'bar',data:{
+    labels:bins.slice(0,-1).map((b,i)=>`${b}–${bins[i+1]}ms`),
+    datasets:[{label:'Requests',data:counts,backgroundColor:'rgba(34,197,94,.6)',borderRadius:6}]
+  },options:cd({plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}})});
+}
+
+function switchTab(page,tab,el){
+  document.querySelectorAll(`#page-${page} .tab`).forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll(`#page-${page} .tab-panel`).forEach(p=>p.classList.remove('active'));
+  if(el)el.classList.add('active');
+  const panel=document.getElementById(`${page}-${tab}`);if(panel)panel.classList.add('active');
+  if(page==='analytics'&&tab==='timeline')loadTimeline();
+}
+
+// ── COMPARE MODELS ──
+setupDZ('dz-compare','fi-compare',f=>{S.compareFile=f;showPreview(f,'pi-compare','pw-compare',null);document.getElementById('compareBtn').disabled=false});
+
+async function runCompare(){
+  if(!S.compareFile)return;
+  const btn=document.getElementById('compareBtn');
+  btn.disabled=true;btn.innerHTML='<span class="loader"></span> Comparing...';
+  const fd=new FormData();fd.append('image',S.compareFile);
+  try{
+    const{ok,data}=await api('/models/compare',{method:'POST',body:fd});
+    const el=document.getElementById('compareResults');
+    if(!ok){el.innerHTML=`<div class="alert alert-error">${esc(data.error||'Failed')}</div>`;return}
+    const d=data.data;const models=d.per_model||{};const ens=d.ensemble||{};
+    el.innerHTML=`<div class="card-title">Results per Model</div>
+    ${Object.entries(models).map(([name,r])=>{
+      const di=S.diseaseCache[r.prediction]||{};const sc=di.color||'var(--accent)';
+      return`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:.84rem;font-weight:600;width:160px">${esc(name)}</span>
+        ${r.error?`<span style="color:var(--red)">Error</span>`:diseaseBadge(r.prediction)}
+        <span style="font-size:.8rem;color:${sc};font-weight:700;width:60px;text-align:right">${r.confidence!=null?r.confidence+'%':'—'}</span>
+      </div>`;}).join('')}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(99,102,241,.08);border-radius:8px;margin-top:8px">
+      <span style="font-size:.84rem;font-weight:700;color:var(--accent-h)">🎯 Ensemble</span>
+      ${diseaseBadge(ens.prediction)}
+      <span style="font-size:.84rem;color:var(--green);font-weight:700">${ens.confidence}%</span>
+    </div>`;
+    const card=document.getElementById('compareChartCard');card.style.display='block';
+    destroyChart('compare');
+    const mNames=Object.keys(models);
+    const ctx=document.getElementById('chartCompare').getContext('2d');
+    S.charts.compare=new Chart(ctx,{type:'bar',data:{
+      labels:LABELS.map(l=>l.replace(/_/g,' ')),
+      datasets:mNames.map((name,i)=>({label:name,data:LABELS.map(l=>models[name]?.all_probabilities?.[l]||0),backgroundColor:COLORS[i]+'99',borderColor:COLORS[i],borderWidth:1}))
+    },options:cd({scales:{y:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'}}}})});
+    toast('Comparison complete','success');
+  }catch{toast('Compare failed','error')}
+  finally{btn.disabled=false;btn.innerHTML='<span>⚖️</span> Compare All Models'}
+}
+
+// ── IMAGE ANALYZER ──
+setupDZ('dz-analyzer','fi-analyzer',f=>{S.analyzerFile=f;showPreview(f,'pi-analyzer','pw-analyzer',null);document.getElementById('analyzerBtn').disabled=false});
+
+async function runAnalyzer(){
+  if(!S.analyzerFile)return;
+  const btn=document.getElementById('analyzerBtn');
+  btn.disabled=true;btn.innerHTML='<span class="loader"></span> Analyzing...';
+  const fd=new FormData();fd.append('image',S.analyzerFile);
+  try{
+    const{ok,data}=await api('/analyze',{method:'POST',body:fd});
+    const el=document.getElementById('analyzerResults');
+    if(!ok){el.innerHTML=`<div class="alert alert-error">${esc(data.error||'Failed')}</div>`;return}
+    const d=data.data;const m=d.metadata||{};const f=d.features||{};const dc=d.dominant_color_rgb||{};
+    el.innerHTML=`
+      <div class="card" style="margin-bottom:14px"><div class="card-title">Image Metadata</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.8rem">
+          <div><span style="color:var(--text3)">Size:</span> ${m.original_width}×${m.original_height}px</div>
+          <div><span style="color:var(--text3)">Megapixels:</span> ${m.megapixels}</div>
+          <div><span style="color:var(--text3)">File Size:</span> ${m.file_size_label}</div>
+          <div><span style="color:var(--text3)">Aspect Ratio:</span> ${m.aspect_ratio}</div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:14px"><div class="card-title">Dominant Color</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:8px;background:rgb(${dc.r},${dc.g},${dc.b});border:1px solid var(--border)"></div>
+          <div style="font-size:.82rem"><div>R:${dc.r} G:${dc.g} B:${dc.b}</div><div style="color:var(--text3);font-family:monospace">#${[dc.r,dc.g,dc.b].map(v=>v.toString(16).padStart(2,'0')).join('')}</div></div>
+        </div>
+      </div>
+      <div class="card"><div class="card-title">Key Features</div>
+        ${['green_dominance','yellow_index','brown_index','brightness','contrast','sharpness','saturation','entropy','edge_density','spot_density'].map(k=>`
+          <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:3px">
+              <span style="color:var(--text3)">${k.replace(/_/g,' ')}</span>
+              <span style="font-weight:600">${(f[k]||0).toFixed(4)}</span>
+            </div>
+            <div class="progress"><div class="progress-fill" style="width:${Math.min(100,Math.abs(f[k]||0)*100).toFixed(1)}%;background:linear-gradient(90deg,var(--accent),var(--cyan))"></div></div>
+          </div>`).join('')}
+      </div>`;
+    document.getElementById('analyzerCharts').style.display='block';
+    const fKeys=['brightness','contrast','sharpness','saturation','noise','entropy','edge_density','symmetry'];
+    destroyChart('featRadar');
+    const ctx1=document.getElementById('chartFeatRadar').getContext('2d');
+    S.charts.featRadar=new Chart(ctx1,{type:'radar',data:{
+      labels:fKeys,
+      datasets:[{label:'Features',data:fKeys.map(k=>Math.min(1,Math.abs(f[k]||0))),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,.15)',pointBackgroundColor:'#6366f1',pointRadius:4}]
+    },options:{...cd(),scales:{r:{beginAtZero:true,max:1,grid:{color:'rgba(255,255,255,.06)'},ticks:{color:'#475569',backdropColor:'transparent',font:{size:9}},pointLabels:{color:'#94a3b8',font:{size:9}}}}}});
+    destroyChart('rgb');
+    const ctx2=document.getElementById('chartRGB').getContext('2d');
+    S.charts.rgb=new Chart(ctx2,{type:'bar',data:{
+      labels:['Red','Green','Blue'],
+      datasets:[{data:[f.r_mean||0,f.g_mean||0,f.b_mean||0],backgroundColor:['rgba(239,68,68,.7)','rgba(34,197,94,.7)','rgba(6,182,212,.7)'],borderWidth:0,borderRadius:8}]
+    },options:cd({plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,max:1}}})});
+    toast('Analysis complete','success');
+  }catch(e){toast('Analysis failed: '+e.message,'error')}
+  finally{btn.disabled=false;btn.innerHTML='<span>🔬</span> Analyze Image'}
+}
+
+// ── ML MODELS ──
+async function loadModels(){
+  try{
+    const{ok,data}=await api('/models');if(!ok)return;
+    const d=data.data;const stats=d.training_stats||{};const active=d.active_model;
+    document.getElementById('modelsGrid').innerHTML=Object.entries(stats).map(([name,s])=>`
+      <div class="card" style="border-top:3px solid ${name===active?'var(--accent)':'var(--border)'}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+          <div><div style="font-weight:700;font-size:.9rem">${esc(name.replace(/_/g,' '))}</div>
+          ${name===active?'<span class="badge badge-purple" style="margin-top:4px">Active</span>':''}</div>
+          <button class="btn btn-secondary btn-sm" onclick="setModel('${name}')">Set Active</button>
+        </div>
+        <div style="font-size:.78rem;color:var(--text2);line-height:1.9">
+          <div>Accuracy: <span style="color:var(--green);font-weight:700">${(s.train_accuracy*100).toFixed(1)}%</span></div>
+          <div>Train time: ${s.train_time_sec}s &nbsp;|&nbsp; Samples: ${s.n_samples}</div>
+        </div>
+        <div class="progress" style="margin-top:10px"><div class="progress-fill" style="width:${(s.train_accuracy*100).toFixed(1)}%;background:linear-gradient(90deg,var(--accent),var(--cyan))"></div></div>
+      </div>`).join('');
+    destroyChart('modelAcc');
+    const ctx=document.getElementById('chartModelAcc').getContext('2d');
+    S.charts.modelAcc=new Chart(ctx,{type:'bar',data:{
+      labels:Object.keys(stats).map(n=>n.replace(/_/g,' ')),
+      datasets:[{label:'Train Accuracy %',data:Object.values(stats).map(s=>+(s.train_accuracy*100).toFixed(2)),backgroundColor:COLORS,borderWidth:0,borderRadius:8}]
+    },options:cd({plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'}}}})});
+  }catch(e){toast('Models load failed: '+e.message,'error')}
+}
+
+async function setModel(name){
+  const{ok,data}=await api('/models/active',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:name})});
+  if(ok){toast(`Active model: ${name}`,'success');loadModels()}
+  else toast(data.error||'Failed','error');
+}
+
+// ── DISEASE LIBRARY ──
+let _sevFilter='';
+async function loadDiseases(){
+  const grid=document.getElementById('diseasesGrid');
+  if(Object.keys(S.diseaseCache).length){renderDiseases();return}
+  grid.innerHTML='<div class="loading-state" style="grid-column:1/-1"><div class="loader loader-lg"></div></div>';
+  try{
+    const{ok,data}=await api('/disease-info');
+    if(!ok){grid.innerHTML='<div class="alert alert-error">Failed to load</div>';return}
+    S.diseaseCache=data.data?.diseases||{};
+    renderDiseases();
+  }catch(e){grid.innerHTML=`<div class="alert alert-error">${esc(e.message)}</div>`}
+}
+
+function renderDiseases(){
+  const q=(document.getElementById('diseaseSearch')?.value||'').toLowerCase();
+  const grid=document.getElementById('diseasesGrid');
+  const entries=Object.entries(S.diseaseCache).filter(([key,d])=>{
+    const ms=!_sevFilter||d.severity===_sevFilter;
+    const mq=!q||key.includes(q)||(d.status||'').toLowerCase().includes(q);
+    return ms&&mq;
+  });
+  if(!entries.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1"><span class="empty-icon">🌿</span><p>No diseases match</p></div>';return}
+  grid.innerHTML=entries.map(([key,d])=>{
+    const sc=d.color||SEV_COLORS[d.severity]||'var(--accent)';
+    return`<div class="disease-card" style="--d-color:${sc}">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <span style="font-size:1.8rem">${d.icon||'🌿'}</span>
+        <div>
+          <div style="font-weight:700;font-size:.9rem">${esc(d.status||key)}</div>
+          <span class="badge sev-${d.severity}" style="margin-top:3px">${SEV_LABELS[d.severity]||d.severity}</span>
+        </div>
+        ${d.severity_score!=null?`<div style="margin-left:auto;text-align:center"><div style="font-size:1.1rem;font-weight:800;color:${sc}">${d.severity_score}</div><div style="font-size:.62rem;color:var(--text3)">Risk Score</div></div>`:''}
+      </div>
+      <p style="font-size:.8rem;color:var(--text2);line-height:1.6;margin-bottom:12px">${esc((d.description||'').slice(0,160))}${d.description?.length>160?'…':''}</p>
+      ${d.affected_parts?.length?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${d.affected_parts.map(p=>`<span class="badge badge-orange" style="font-size:.62rem">${esc(p)}</span>`).join('')}</div>`:''}
+      <div style="margin-bottom:10px">
+        <div style="font-size:.66rem;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;font-weight:600">💊 Top Treatment</div>
+        <div style="font-size:.78rem;color:var(--text);padding:6px 8px;background:var(--surface2);border-radius:6px;border-left:2px solid ${sc}">${esc((d.chemical_treatments||d.solutions||[])[0]||'See details')}</div>
+      </div>
+      ${d.recovery_time?`<div style="font-size:.72rem;color:var(--text3)">⏱ Recovery: <span style="color:var(--text)">${esc(d.recovery_time)}</span></div>`:''}
+      ${d.economic_impact?`<div style="font-size:.72rem;color:var(--text3)">💰 Impact: <span style="color:var(--red)">${esc(d.economic_impact)}</span></div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function setSev(el,sev){
+  _sevFilter=sev;
+  document.querySelectorAll('#sevFilters .model-pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');renderDiseases();
+}
+
+// ── SEARCH ──
+async function runSearch(){
+  const q=document.getElementById('searchInput').value.trim();
+  if(!q){toast('Enter a search query','warning');return}
+  const el=document.getElementById('searchResults');
+  el.innerHTML='<div class="loading-state"><div class="loader loader-lg"></div></div>';
+  const{ok,data}=await api(`/search?q=${encodeURIComponent(q)}&limit=30`);
+  if(!ok){el.innerHTML=`<div class="alert alert-error">${esc(data.error||'Search failed')}</div>`;return}
+  const rows=data.data?.results||[];
+  if(!rows.length){el.innerHTML='<div class="empty"><span class="empty-icon">🔎</span><p>No results found</p></div>';return}
+  el.innerHTML=`<div style="font-size:.76rem;color:var(--text3);margin-bottom:10px">${rows.length} results for "${esc(q)}"</div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Filename</th><th>Disease</th><th>Confidence</th><th>Model</th><th>Date</th></tr></thead>
+    <tbody>${rows.map(r=>`<tr>
+      <td style="color:var(--text3)">#${r.id}</td>
+      <td class="td-clip">${esc(r.image_name)}</td>
+      <td>${diseaseBadge(r.prediction_result)}</td>
+      <td>${confBadge(r.confidence)}</td>
+      <td>${modelBadge(r.model_used)}</td>
+      <td style="color:var(--text3);font-size:.75rem">${fmtDate(r.created_at)}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+document.getElementById('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter')runSearch()});
+
+// ── INIT ──
+(function init(){
+  if(localStorage.getItem('theme')==='light'){document.body.classList.add('light');document.getElementById('themeBtn').textContent='☀️'}
+  checkHealth();setInterval(checkHealth,30000);
+  loadDiseaseCache().then(()=>loadDashboard());
+  console.log('%c🌿 CropHealth AI v3.1','font-size:16px;font-weight:bold;color:#22c55e');
+  console.log('%cPlant Disease Detection System','font-size:12px;color:#94a3b8');
+  
+  // Keyboard shortcuts
+  document.addEventListener('keydown',e=>{
+    if(e.ctrlKey||e.metaKey){
+      if(e.key==='k'){e.preventDefault();document.getElementById('quickSearch').focus()}
+      if(e.key==='u'){e.preventDefault();nav('classify')}
+      if(e.key==='h'){e.preventDefault();nav('history')}
+      if(e.key==='d'){e.preventDefault();nav('dashboard')}
+    }
+    if(e.key==='Escape'){closeSidebar();document.activeElement?.blur()}
+  });
+  
+  // Error recovery
+  window.addEventListener('error',e=>{
+    console.error('Global error:',e.error);
+    if(e.error?.message?.includes('fetch')||e.error?.message?.includes('network')){
+      toast('Network error - check API connection','error',5000);
+    }
+  });
+  
+  window.addEventListener('unhandledrejection',e=>{
+    console.error('Unhandled promise rejection:',e.reason);
+    if(e.reason?.message?.includes('fetch')||e.reason?.message?.includes('network')){
+      toast('Network error - retrying...','warning',3000);
+    }
+  });
+})();
+</script>
+</body>
+</html>
+ 
