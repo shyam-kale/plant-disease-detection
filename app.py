@@ -4,8 +4,6 @@ from functools import wraps
 from logging.handlers import RotatingFileHandler
 
 import numpy as np
-import mysql.connector
-from mysql.connector import pooling
 from flask import Flask, request, jsonify, g, Response, send_from_directory
 from flask_cors import CORS
 from PIL import Image, ImageFilter, ImageEnhance, ImageStat
@@ -482,6 +480,17 @@ if Config.USE_SQLITE:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_created_at ON predictions(created_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_prediction_result ON predictions(prediction_result)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_file_hash ON predictions(file_hash)")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                prediction_id INTEGER NOT NULL,
+                correct_label TEXT NOT NULL,
+                user_comment TEXT DEFAULT '',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(prediction_id)
+            )
+        """)
         conn.commit()
         conn.close()
         logger.info("SQLite database initialized")
@@ -502,6 +511,8 @@ if Config.USE_SQLITE:
     def execute_query(sql, params=None, fetch=False, fetchone=False, commit=False):
         conn = get_db()
         cur = conn.cursor()
+        # SQLite uses ? placeholders, not %s
+        sql = sql.replace("%s", "?")
         try:
             cur.execute(sql, params or ())
             if commit: conn.commit()
@@ -518,6 +529,8 @@ if Config.USE_SQLITE:
         finally:
             cur.close()
 else:
+    import mysql.connector
+    from mysql.connector import pooling
     _db_pool = None
     _pool_lock = threading.Lock()
 
@@ -939,9 +952,10 @@ class PredictionDAO:
 
     @staticmethod
     def get_by_id(pred_id):
+        was_correct_expr = "(CASE WHEN f.correct_label=p.prediction_result THEN 1 ELSE 0 END)" if Config.USE_SQLITE else "(f.correct_label=p.prediction_result)"
         return execute_query(
-            """SELECT p.*, f.correct_label AS feedback_label,
-                      (f.correct_label = p.prediction_result) AS was_correct
+            f"""SELECT p.*, f.correct_label AS feedback_label,
+                      {was_correct_expr} AS was_correct
                FROM predictions p LEFT JOIN feedback f ON f.prediction_id = p.id
                WHERE p.id = %s""", (pred_id,), fetchone=True)
 
@@ -954,8 +968,12 @@ class PredictionDAO:
     @staticmethod
     def get_stats():
         total   = execute_query("SELECT COUNT(*) AS cnt FROM predictions", fetchone=True)
-        today   = execute_query("SELECT COUNT(*) AS cnt FROM predictions WHERE DATE(created_at)=CURDATE()", fetchone=True)
-        week    = execute_query("SELECT COUNT(*) AS cnt FROM predictions WHERE created_at>=DATE_SUB(NOW(),INTERVAL 7 DAY)", fetchone=True)
+        if Config.USE_SQLITE:
+            today = execute_query("SELECT COUNT(*) AS cnt FROM predictions WHERE DATE(created_at)=DATE('now')", fetchone=True)
+            week  = execute_query("SELECT COUNT(*) AS cnt FROM predictions WHERE created_at>=datetime('now','-7 days')", fetchone=True)
+        else:
+            today = execute_query("SELECT COUNT(*) AS cnt FROM predictions WHERE DATE(created_at)=CURDATE()", fetchone=True)
+            week  = execute_query("SELECT COUNT(*) AS cnt FROM predictions WHERE created_at>=DATE_SUB(NOW(),INTERVAL 7 DAY)", fetchone=True)
         avg_t   = execute_query("SELECT AVG(processing_time_ms) AS avg_ms FROM predictions", fetchone=True)
         by_lbl  = execute_query("SELECT prediction_result, COUNT(*) AS cnt, AVG(confidence) AS avg_conf FROM predictions GROUP BY prediction_result ORDER BY cnt DESC", fetch=True)
         by_mdl  = execute_query("SELECT model_used, COUNT(*) AS cnt FROM predictions GROUP BY model_used", fetch=True)
@@ -993,6 +1011,7 @@ class PredictionDAO:
         if model_filter: where.append("p.model_used=%s"); params.append(model_filter)
         wsql = ("WHERE " + " AND ".join(where)) if where else ""
         total = (execute_query(f"SELECT COUNT(*) AS cnt FROM predictions p {wsql}", params, fetchone=True) or {}).get("cnt", 0)
+        was_correct_expr = "(CASE WHEN f.correct_label=p.prediction_result THEN 1 ELSE 0 END)" if Config.USE_SQLITE else "(f.correct_label=p.prediction_result)"
         rows  = execute_query(
             f"""SELECT p.id, p.image_name, p.prediction_result, p.confidence,
                        p.model_used, p.processing_time_ms, p.created_at,
@@ -1000,7 +1019,7 @@ class PredictionDAO:
                        p.original_width, p.original_height, p.file_hash,
                        p.feature_version, p.thumbnail,
                        f.correct_label AS feedback_label,
-                       (f.correct_label=p.prediction_result) AS was_correct
+                       {was_correct_expr} AS was_correct
                 FROM predictions p LEFT JOIN feedback f ON f.prediction_id=p.id
                 {wsql} ORDER BY p.created_at DESC LIMIT %s OFFSET %s""",
             params + [per_page, offset], fetch=True)
@@ -1011,6 +1030,15 @@ class PredictionDAO:
 class FeedbackDAO:
     @staticmethod
     def insert(prediction_id, correct_label, user_comment=""):
+        if Config.USE_SQLITE:
+            return execute_query(
+                """INSERT INTO feedback (prediction_id, correct_label, user_comment)
+                   VALUES (%s,%s,%s)
+                   ON CONFLICT(prediction_id) DO UPDATE SET
+                   correct_label=excluded.correct_label,
+                   user_comment=excluded.user_comment,
+                   updated_at=CURRENT_TIMESTAMP""",
+                (prediction_id, correct_label, user_comment), commit=True)
         return execute_query(
             """INSERT INTO feedback (prediction_id, correct_label, user_comment)
                VALUES (%s,%s,%s) ON DUPLICATE KEY UPDATE correct_label=%s, user_comment=%s, updated_at=NOW()""",
@@ -1018,18 +1046,24 @@ class FeedbackDAO:
 
     @staticmethod
     def get_all(limit=50):
+        was_correct_expr = "(CASE WHEN f.correct_label=p.prediction_result THEN 1 ELSE 0 END)" if Config.USE_SQLITE else "(f.correct_label=p.prediction_result)"
         return execute_query(
-            """SELECT f.id, f.prediction_id, f.correct_label, f.user_comment,
+            f"""SELECT f.id, f.prediction_id, f.correct_label, f.user_comment,
                       f.created_at, p.image_name, p.prediction_result,
-                      (f.correct_label=p.prediction_result) AS was_correct
+                      {was_correct_expr} AS was_correct
                FROM feedback f JOIN predictions p ON f.prediction_id=p.id
                ORDER BY f.created_at DESC LIMIT %s""", (limit,), fetch=True)
 
     @staticmethod
     def get_accuracy():
-        row = execute_query(
-            "SELECT COUNT(*) AS total, SUM(f.correct_label=p.prediction_result) AS correct "
-            "FROM feedback f JOIN predictions p ON f.prediction_id=p.id", fetchone=True)
+        if Config.USE_SQLITE:
+            row = execute_query(
+                "SELECT COUNT(*) AS total, SUM(CASE WHEN f.correct_label=p.prediction_result THEN 1 ELSE 0 END) AS correct "
+                "FROM feedback f JOIN predictions p ON f.prediction_id=p.id", fetchone=True)
+        else:
+            row = execute_query(
+                "SELECT COUNT(*) AS total, SUM(f.correct_label=p.prediction_result) AS correct "
+                "FROM feedback f JOIN predictions p ON f.prediction_id=p.id", fetchone=True)
         if not row or not row["total"]:
             return {"total_feedback": 0, "correct": 0, "accuracy_pct": 0}
         acc = round(100 * (row["correct"] or 0) / row["total"], 2)
@@ -1258,10 +1292,16 @@ def stats():
 def stats_timeline():
     try:
         days = min(90, max(1, int(request.args.get("days", 7))))
-        rows = execute_query(
-            "SELECT DATE(created_at) AS day, COUNT(*) AS count, AVG(confidence) AS avg_confidence "
-            "FROM predictions WHERE created_at>=DATE_SUB(NOW(),INTERVAL %s DAY) "
-            "GROUP BY DATE(created_at) ORDER BY day ASC", (days,), fetch=True)
+        if Config.USE_SQLITE:
+            rows = execute_query(
+                "SELECT DATE(created_at) AS day, COUNT(*) AS count, AVG(confidence) AS avg_confidence "
+                "FROM predictions WHERE created_at>=datetime('now','-' || %s || ' days') "
+                "GROUP BY DATE(created_at) ORDER BY day ASC", (days,), fetch=True)
+        else:
+            rows = execute_query(
+                "SELECT DATE(created_at) AS day, COUNT(*) AS count, AVG(confidence) AS avg_confidence "
+                "FROM predictions WHERE created_at>=DATE_SUB(NOW(),INTERVAL %s DAY) "
+                "GROUP BY DATE(created_at) ORDER BY day ASC", (days,), fetch=True)
         timeline = [{"day": r["day"].isoformat() if hasattr(r["day"],"isoformat") else str(r["day"]),
                      "count": r["count"],
                      "avg_confidence": round(float(r["avg_confidence"] or 0), 2)} for r in (rows or [])]

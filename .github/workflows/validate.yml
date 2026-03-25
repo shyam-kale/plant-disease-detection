@@ -1,0 +1,66 @@
+name: Deployment Validation
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python 3.11.9
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11.9'
+    
+    - name: Verify Python version
+      run: |
+        python --version
+        python -c "import sys; assert sys.version_info[:2] == (3, 11), 'Wrong Python version'"
+    
+    - name: Upgrade pip
+      run: |
+        python -m pip install --upgrade pip
+    
+    - name: Install dependencies
+      run: |
+        cd project
+        pip install -r requirements.txt
+    
+    - name: Run validation script
+      run: |
+        cd project
+        python validate_deployment.py
+    
+    - name: Test imports
+      run: |
+        cd project
+        python -c "import numpy; print(f'numpy: {numpy.__version__}')"
+        python -c "import sklearn; print(f'scikit-learn: {sklearn.__version__}')"
+        python -c "import flask; print(f'flask: {flask.__version__}')"
+        python -c "import PIL; print(f'Pillow: {PIL.__version__}')"
+    
+    - name: Check configuration consistency
+      run: |
+        cd project
+        RUNTIME=$(cat runtime.txt | sed 's/python-//')
+        PYVERSION=$(cat .python-version)
+        echo "runtime.txt: $RUNTIME"
+        echo ".python-version: $PYVERSION"
+        if [ "$RUNTIME" != "$PYVERSION" ]; then
+          echo "ERROR: Version mismatch!"
+          exit 1
+        fi
+        echo "✅ Configuration files are consistent"
+    
+    - name: Syntax check Python files
+      run: |
+        cd project
+        python -m py_compile app.py
+        python -m py_compile app_sqlite.py
+        echo "✅ Python syntax valid"
