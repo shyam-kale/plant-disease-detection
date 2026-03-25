@@ -550,7 +550,7 @@ tbody tr:hover td{background:var(--surface2)}
             </div>
           </div>
           <div class="card">
-            <div class="card-title">Severity Breakdown</div>
+            <div class="card-title">Disease Risk Map — All 12 Diseases</div>
             <div style="position:relative;height:260px"><canvas id="chartSeverityPie"></canvas></div>
           </div>
         </div>
@@ -560,7 +560,7 @@ tbody tr:hover td{background:var(--surface2)}
             <div style="position:relative;height:280px"><canvas id="chartRadar"></canvas></div>
           </div>
           <div class="card">
-            <div class="card-title">Detection Counts — Horizontal Bar</div>
+            <div class="card-title">Prediction Confidence — Min / Avg / Max</div>
             <div style="position:relative;height:280px"><canvas id="chartHBar"></canvas></div>
           </div>
         </div>
@@ -954,26 +954,38 @@ function renderTimeline(data){
   const ctx=document.getElementById('chartTimeline').getContext('2d');
   S.charts.timeline=new Chart(ctx,{type:'line',data:{
     labels:data.map(d=>d.day),
-    datasets:[{label:'Detections',data:data.map(d=>d.count),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,.12)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#6366f1',pointBorderColor:'#0e0e20',pointBorderWidth:2}]
-  },options:cd({scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}})});
+    datasets:[{label:'Detections',data:data.map(d=>d.count),
+      borderColor:'#6366f1',
+      backgroundColor:(ctx2=>{const g=ctx2.chart.ctx.createLinearGradient(0,0,0,200);g.addColorStop(0,'rgba(99,102,241,.35)');g.addColorStop(1,'rgba(99,102,241,.01)');return g;}),
+      fill:true,tension:.45,pointRadius:5,pointBackgroundColor:'#818cf8',
+      pointBorderColor:'#0a0a1a',pointBorderWidth:2,pointHoverRadius:7}]
+  },options:cd({scales:{y:{beginAtZero:true,ticks:{stepSize:1,color:'#475569'},grid:{color:'rgba(255,255,255,.05)'}},x:{grid:{display:false},ticks:{color:'#475569'}}}})});
 }
 
 function renderDist(data){
   destroyChart('dist');
   const ctx=document.getElementById('chartDist').getContext('2d');
+  const palette=['#6366f1','#22c55e','#f59e0b','#ef4444','#06b6d4','#ec4899','#f97316','#8b5cf6','#14b8a6','#eab308','#84cc16','#dc2626'];
   S.charts.dist=new Chart(ctx,{type:'doughnut',data:{
     labels:data.map(d=>d.label.replace(/_/g,' ')),
-    datasets:[{data:data.map(d=>d.count),backgroundColor:COLORS,borderWidth:2,borderColor:'#0e0e20',hoverOffset:6}]
-  },options:{...cd(),cutout:'58%',plugins:{legend:{position:'right',labels:{color:'#94a3b8',font:{size:10},padding:10,boxWidth:12}}}}});
+    datasets:[{data:data.map(d=>d.count),backgroundColor:data.map((_,i)=>palette[i%palette.length]),
+      borderWidth:3,borderColor:'#0a0a1a',hoverOffset:10}]
+  },options:{...cd(),cutout:'62%',plugins:{legend:{position:'right',labels:{color:'#94a3b8',font:{size:10},padding:10,boxWidth:10,usePointStyle:true,pointStyle:'circle'}}}}});
 }
 
 function renderModelUsage(data){
   destroyChart('modelUsage');
   const ctx=document.getElementById('chartModelUsage').getContext('2d');
+  const palette=['#6366f1','#22c55e','#f59e0b','#ef4444','#06b6d4','#ec4899','#f97316','#8b5cf6'];
   S.charts.modelUsage=new Chart(ctx,{type:'bar',data:{
     labels:data.map(d=>d.model_used),
-    datasets:[{data:data.map(d=>d.cnt),backgroundColor:COLORS,borderWidth:0,borderRadius:6}]
-  },options:cd({plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}})});
+    datasets:[{data:data.map(d=>d.cnt),
+      backgroundColor:data.map((_,i)=>palette[i%palette.length]),
+      borderWidth:0,borderRadius:8,borderSkipped:false}]
+  },options:cd({plugins:{legend:{display:false}},scales:{
+    y:{beginAtZero:true,ticks:{stepSize:1,color:'#475569'},grid:{color:'rgba(255,255,255,.05)'}},
+    x:{grid:{display:false},ticks:{color:'#94a3b8'}}
+  }})});
 }
 
 async function loadRecent(){
@@ -1367,47 +1379,98 @@ async function loadAnalytics(){
 function renderDoughnut(labels){
   destroyChart('doughnut');
   const ctx=document.getElementById('chartDoughnut').getContext('2d');
+  const palette=['#6366f1','#22c55e','#f59e0b','#ef4444','#06b6d4','#ec4899','#f97316','#8b5cf6','#14b8a6','#eab308','#84cc16','#dc2626'];
+  const data=labels.map(l=>l.count);
+  const bg=labels.map((_,i)=>palette[i%palette.length]);
+  const grd=ctx.createLinearGradient(0,0,0,260);
   S.charts.doughnut=new Chart(ctx,{type:'doughnut',data:{
     labels:labels.map(l=>l.label.replace(/_/g,' ')),
-    datasets:[{data:labels.map(l=>l.count),backgroundColor:COLORS,borderWidth:2,borderColor:'#060612',hoverOffset:8}]
-  },options:{...cd(),cutout:'60%',plugins:{legend:{position:'right',labels:{color:'#94a3b8',font:{size:10},padding:10,boxWidth:12}}}}});
+    datasets:[{data,backgroundColor:bg,borderWidth:3,borderColor:'#0a0a1a',hoverOffset:12,hoverBorderWidth:2}]
+  },options:{...cd(),cutout:'65%',plugins:{
+    legend:{position:'right',labels:{color:'#94a3b8',font:{size:10},padding:12,boxWidth:10,usePointStyle:true,pointStyle:'circle'}},
+    tooltip:{callbacks:{label:ctx=>{const total=data.reduce((a,b)=>a+b,0);return` ${ctx.label}: ${ctx.raw} (${((ctx.raw/total)*100).toFixed(1)}%)`}}}
+  }}});
+  // centre label
+  const doughnutLabel={id:'doughnutLabel',afterDraw(chart){
+    const{ctx,chartArea:{top,bottom,left,right}}=chart;
+    const cx=(left+right)/2,cy=(top+bottom)/2;
+    const total=data.reduce((a,b)=>a+b,0);
+    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle='#f1f5f9';ctx.font='bold 22px sans-serif';ctx.fillText(total,cx,cy-8);
+    ctx.fillStyle='#64748b';ctx.font='11px sans-serif';ctx.fillText('total',cx,cy+12);
+    ctx.restore();
+  }};
+  S.charts.doughnut.options.plugins.doughnutLabel=doughnutLabel;
 }
 
 function renderRadar(labels){
   destroyChart('radar');
   const ctx=document.getElementById('chartRadar').getContext('2d');
+  const palette=['#6366f1','#22c55e','#f59e0b','#ef4444','#06b6d4','#ec4899','#f97316','#8b5cf6','#14b8a6','#eab308','#84cc16','#dc2626'];
   S.charts.radar=new Chart(ctx,{type:'radar',data:{
     labels:labels.map(l=>l.label.replace(/_/g,' ')),
-    datasets:[{label:'Avg Confidence',data:labels.map(l=>l.avg_confidence),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,.15)',pointBackgroundColor:'#6366f1',pointRadius:4,pointBorderColor:'#060612',pointBorderWidth:2}]
-  },options:{...cd(),scales:{r:{beginAtZero:true,max:100,grid:{color:'rgba(255,255,255,.06)'},ticks:{color:'#475569',backdropColor:'transparent',font:{size:9}},pointLabels:{color:'#94a3b8',font:{size:9}}}}}});
+    datasets:[
+      {label:'Avg Confidence %',data:labels.map(l=>l.avg_confidence),
+        borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,.18)',
+        pointBackgroundColor:labels.map((_,i)=>palette[i%palette.length]),
+        pointRadius:5,pointBorderColor:'#0a0a1a',pointBorderWidth:2,borderWidth:2},
+      {label:'Max Confidence %',data:labels.map(l=>l.max_confidence),
+        borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.08)',
+        pointBackgroundColor:'#22c55e',pointRadius:3,borderWidth:1,borderDash:[4,4]}
+    ]
+  },options:{...cd(),scales:{r:{
+    beginAtZero:true,max:100,
+    grid:{color:'rgba(255,255,255,.08)'},
+    angleLines:{color:'rgba(255,255,255,.06)'},
+    ticks:{color:'#475569',backdropColor:'transparent',font:{size:8},stepSize:25},
+    pointLabels:{color:'#94a3b8',font:{size:9}}
+  }}}});
 }
 
 function renderSeverityPie(labels){
   destroyChart('severityPie');
   const ctx=document.getElementById('chartSeverityPie').getContext('2d');
-  const sevCounts={none:0,medium:0,high:0,critical:0};
-  labels.forEach(l=>{
-    const di=S.diseaseCache[l.label]||{};
-    const sev=di.severity||'none';
-    sevCounts[sev]=(sevCounts[sev]||0)+l.count;
-  });
-  S.charts.severityPie=new Chart(ctx,{type:'pie',data:{
-    labels:['Healthy','Moderate','Severe','Critical'],
-    datasets:[{data:[sevCounts.none,sevCounts.medium,sevCounts.high,sevCounts.critical],
-      backgroundColor:[SEV_COLORS.none,SEV_COLORS.medium,SEV_COLORS.high,SEV_COLORS.critical],
-      borderWidth:2,borderColor:'#060612',hoverOffset:6}]
-  },options:cd({plugins:{legend:{position:'bottom'}}})});
+  // Show severity score for ALL 12 diseases — always colourful & informative
+  const all=LABELS.map((lbl,i)=>{
+    const di=S.diseaseCache[lbl]||{};
+    return{name:lbl.replace(/_/g,' '),score:di.severity_score||0,color:di.color||'#475569'};
+  }).filter(d=>d.score>0);
+  S.charts.severityPie=new Chart(ctx,{type:'polarArea',data:{
+    labels:all.map(d=>d.name),
+    datasets:[{data:all.map(d=>d.score),
+      backgroundColor:all.map(d=>d.color+'bb'),
+      borderColor:all.map(d=>d.color),
+      borderWidth:2}]
+  },options:{...cd(),
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.label}: severity ${c.raw}/100`}}},
+    scales:{r:{beginAtZero:true,max:100,ticks:{display:false,stepSize:25},grid:{color:'rgba(255,255,255,.07)'}}}
+  }});
 }
 
 function renderHBar(labels){
   destroyChart('hbar');
   const ctx=document.getElementById('chartHBar').getContext('2d');
-  const sorted=[...labels].sort((a,b)=>b.count-a.count).slice(0,8);
+  const sorted=[...labels].sort((a,b)=>b.avg_confidence-a.avg_confidence);
+  const palette=['#6366f1','#22c55e','#f59e0b','#ef4444','#06b6d4','#ec4899','#f97316','#8b5cf6','#14b8a6','#eab308','#84cc16','#dc2626'];
   S.charts.hbar=new Chart(ctx,{type:'bar',data:{
     labels:sorted.map(l=>l.label.replace(/_/g,' ')),
-    datasets:[{label:'Detections',data:sorted.map(l=>l.count),
-      backgroundColor:sorted.map((_,i)=>COLORS[i%COLORS.length]),borderWidth:0,borderRadius:6}]
-  },options:cd({indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}}})});
+    datasets:[
+      {label:'Min %',data:sorted.map(l=>l.min_confidence),
+        backgroundColor:sorted.map((_,i)=>'rgba(239,68,68,.55)'),borderRadius:4,borderWidth:0,barPercentage:.5},
+      {label:'Avg %',data:sorted.map(l=>l.avg_confidence),
+        backgroundColor:sorted.map((_,i)=>palette[i%palette.length]+'cc'),borderRadius:4,borderWidth:0,barPercentage:.5},
+      {label:'Max %',data:sorted.map(l=>l.max_confidence),
+        backgroundColor:sorted.map((_,i)=>'rgba(34,197,94,.55)'),borderRadius:4,borderWidth:0,barPercentage:.5},
+    ]
+  },options:cd({
+    plugins:{legend:{position:'top',labels:{color:'#94a3b8',font:{size:10},padding:10,boxWidth:10,usePointStyle:true}}},
+    scales:{
+      x:{ticks:{color:'#94a3b8',font:{size:9}},grid:{color:'rgba(255,255,255,.04)'}},
+      y:{beginAtZero:true,max:100,
+        ticks:{color:'#475569',font:{size:9},callback:v=>v+'%'},
+        grid:{color:'rgba(255,255,255,.05)'}}
+    }
+  })});
 }
 
 function renderLabelBreakdown(labels){
