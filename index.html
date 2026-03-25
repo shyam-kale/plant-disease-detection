@@ -550,17 +550,17 @@ tbody tr:hover td{background:var(--surface2)}
             </div>
           </div>
           <div class="card">
-            <div class="card-title">Severity Breakdown — by Count</div>
+            <div class="card-title">Severity Breakdown</div>
             <div style="position:relative;height:260px"><canvas id="chartSeverityPie"></canvas></div>
           </div>
         </div>
         <div class="g2" style="margin-bottom:18px">
           <div class="card">
-            <div class="card-title">Avg Confidence by Disease — Radar</div>
+            <div class="card-title">Confidence by Disease — Radar</div>
             <div style="position:relative;height:280px"><canvas id="chartRadar"></canvas></div>
           </div>
           <div class="card">
-            <div class="card-title">Confidence Range — Min / Avg / Max</div>
+            <div class="card-title">Detection Counts — Horizontal Bar</div>
             <div style="position:relative;height:280px"><canvas id="chartHBar"></canvas></div>
           </div>
         </div>
@@ -1385,50 +1385,29 @@ function renderRadar(labels){
 function renderSeverityPie(labels){
   destroyChart('severityPie');
   const ctx=document.getElementById('chartSeverityPie').getContext('2d');
-  // Group diseases by severity level and sum their counts
   const sevCounts={none:0,medium:0,high:0,critical:0};
   labels.forEach(l=>{
     const di=S.diseaseCache[l.label]||{};
     const sev=di.severity||'none';
     sevCounts[sev]=(sevCounts[sev]||0)+l.count;
   });
-  // Show as horizontal stacked bar so it's visually distinct from the doughnut
-  S.charts.severityPie=new Chart(ctx,{type:'bar',data:{
-    labels:['Detections by Severity'],
-    datasets:[
-      {label:'Healthy (none)',data:[sevCounts.none],backgroundColor:SEV_COLORS.none,borderRadius:4,borderWidth:0},
-      {label:'Moderate',data:[sevCounts.medium],backgroundColor:SEV_COLORS.medium,borderRadius:4,borderWidth:0},
-      {label:'Severe',data:[sevCounts.high],backgroundColor:SEV_COLORS.high,borderRadius:4,borderWidth:0},
-      {label:'Critical',data:[sevCounts.critical],backgroundColor:SEV_COLORS.critical,borderRadius:4,borderWidth:0},
-    ]
-  },options:cd({
-    indexAxis:'y',
-    plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:10},padding:10,boxWidth:12}}},
-    scales:{
-      x:{stacked:true,beginAtZero:true,ticks:{color:'#475569',stepSize:1},grid:{color:'rgba(255,255,255,.04)'}},
-      y:{stacked:true,ticks:{color:'#94a3b8'}}
-    }
-  })});
+  S.charts.severityPie=new Chart(ctx,{type:'pie',data:{
+    labels:['Healthy','Moderate','Severe','Critical'],
+    datasets:[{data:[sevCounts.none,sevCounts.medium,sevCounts.high,sevCounts.critical],
+      backgroundColor:[SEV_COLORS.none,SEV_COLORS.medium,SEV_COLORS.high,SEV_COLORS.critical],
+      borderWidth:2,borderColor:'#060612',hoverOffset:6}]
+  },options:cd({plugins:{legend:{position:'bottom'}}})});
 }
 
 function renderHBar(labels){
   destroyChart('hbar');
   const ctx=document.getElementById('chartHBar').getContext('2d');
-  const sorted=[...labels].sort((a,b)=>b.avg_confidence-a.avg_confidence);
+  const sorted=[...labels].sort((a,b)=>b.count-a.count).slice(0,8);
   S.charts.hbar=new Chart(ctx,{type:'bar',data:{
     labels:sorted.map(l=>l.label.replace(/_/g,' ')),
-    datasets:[
-      {label:'Min %',data:sorted.map(l=>l.min_confidence),backgroundColor:'rgba(239,68,68,.6)',borderRadius:3,borderWidth:0},
-      {label:'Avg %',data:sorted.map(l=>l.avg_confidence),backgroundColor:'rgba(99,102,241,.8)',borderRadius:3,borderWidth:0},
-      {label:'Max %',data:sorted.map(l=>l.max_confidence),backgroundColor:'rgba(34,197,94,.6)',borderRadius:3,borderWidth:0},
-    ]
-  },options:cd({
-    plugins:{legend:{position:'top',labels:{color:'#94a3b8',font:{size:10},padding:10,boxWidth:12}}},
-    scales:{
-      x:{ticks:{color:'#94a3b8',font:{size:9}},grid:{color:'rgba(255,255,255,.04)'}},
-      y:{beginAtZero:true,max:100,ticks:{color:'#475569',callback:v=>v+'%'},grid:{color:'rgba(255,255,255,.04)'}}
-    }
-  })});
+    datasets:[{label:'Detections',data:sorted.map(l=>l.count),
+      backgroundColor:sorted.map((_,i)=>COLORS[i%COLORS.length]),borderWidth:0,borderRadius:6}]
+  },options:cd({indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}}})});
 }
 
 function renderLabelBreakdown(labels){
