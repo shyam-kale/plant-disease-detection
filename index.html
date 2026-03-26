@@ -369,19 +369,19 @@ tbody tr:hover td{background:var(--surface2)}
     <!-- ══ DASHBOARD ══ -->
     <div class="page active" id="page-dashboard">
       <div class="g5" style="margin-bottom:18px">
-        <div class="stat-card" style="--accent-color:var(--accent)"><div class="stat-icon">🖼️</div><div class="stat-value" id="sc-total">—</div><div class="stat-label">Total Scans</div></div>
-        <div class="stat-card" style="--accent-color:var(--green)"><div class="stat-icon">📅</div><div class="stat-value" id="sc-today">—</div><div class="stat-label">Today</div></div>
-        <div class="stat-card" style="--accent-color:var(--cyan)"><div class="stat-icon">📆</div><div class="stat-value" id="sc-week">—</div><div class="stat-label">This Week</div></div>
-        <div class="stat-card" style="--accent-color:var(--orange)"><div class="stat-icon">⚡</div><div class="stat-value" id="sc-ms">—</div><div class="stat-label">Avg Speed</div></div>
-        <div class="stat-card" style="--accent-color:var(--pink)"><div class="stat-icon">🎯</div><div class="stat-value" id="sc-acc">—</div><div class="stat-label">Accuracy</div></div>
+        <div class="stat-card" style="--accent-color:var(--accent)"><div class="stat-icon">🖼️</div><div class="stat-value" id="sc-total">—</div><div class="stat-label" data-i18n="total_scans">Total Scans</div></div>
+        <div class="stat-card" style="--accent-color:var(--green)"><div class="stat-icon">📅</div><div class="stat-value" id="sc-today">—</div><div class="stat-label" data-i18n="today">Today</div></div>
+        <div class="stat-card" style="--accent-color:var(--cyan)"><div class="stat-icon">📆</div><div class="stat-value" id="sc-week">—</div><div class="stat-label" data-i18n="this_week">This Week</div></div>
+        <div class="stat-card" style="--accent-color:var(--orange)"><div class="stat-icon">⚡</div><div class="stat-value" id="sc-ms">—</div><div class="stat-label" data-i18n="avg_speed">Avg Speed</div></div>
+        <div class="stat-card" style="--accent-color:var(--pink)"><div class="stat-icon">🎯</div><div class="stat-value" id="sc-acc">—</div><div class="stat-label" data-i18n="accuracy">Accuracy</div></div>
       </div>
       <div class="g2" style="margin-bottom:18px">
-        <div class="card"><div class="card-title">Detections Over Time</div><div class="chart-box"><canvas id="chartTimeline"></canvas></div></div>
-        <div class="card"><div class="card-title">Disease Distribution</div><div class="chart-box"><canvas id="chartDist"></canvas></div></div>
+        <div class="card"><div class="card-title" data-i18n="detections_over_time">Detections Over Time</div><div class="chart-box"><canvas id="chartTimeline"></canvas></div></div>
+        <div class="card"><div class="card-title" data-i18n="disease_distribution">Disease Distribution</div><div class="chart-box"><canvas id="chartDist"></canvas></div></div>
       </div>
       <div class="g2">
-        <div class="card"><div class="card-title">Model Usage</div><div class="chart-box-sm"><canvas id="chartModelUsage"></canvas></div></div>
-        <div class="card"><div class="card-title">Recent Detections</div><div class="scroll-list" id="recentList"><div class="loading-state"><div class="loader loader-lg"></div></div></div></div>
+        <div class="card"><div class="card-title" data-i18n="model_usage">Model Usage</div><div class="chart-box-sm"><canvas id="chartModelUsage"></canvas></div></div>
+        <div class="card"><div class="card-title" data-i18n="recent_detections">Recent Detections</div><div class="scroll-list" id="recentList"><div class="loading-state"><div class="loader loader-lg"></div></div></div></div>
       </div>
     </div>
 
@@ -390,12 +390,12 @@ tbody tr:hover td{background:var(--surface2)}
       <div class="g2">
         <div>
           <div class="card" style="margin-bottom:16px">
-            <div class="card-title">Upload Plant / Leaf Image</div>
+            <div class="card-title" data-i18n="upload_image">Upload Plant / Leaf Image</div>
             <div class="drop-zone" id="dz-classify">
               <input type="file" id="fi-classify" accept="image/*"/>
               <span class="dz-icon">🌿</span>
-              <div class="dz-title">Drop your plant image here</div>
-              <div class="dz-sub"><span>Click to browse</span> or drag & drop</div>
+              <div class="dz-title" data-i18n="drop_image">Drop your plant image here</div>
+              <div class="dz-sub"><span data-i18n="click_browse">Click to browse</span> <span data-i18n="drag_drop">or drag & drop</span></div>
               <div class="dz-sub" style="margin-top:4px">PNG, JPG, JPEG, WEBP, BMP, HEIC — max 15MB</div>
             </div>
             <div class="preview-wrap" id="pw-classify">
@@ -404,9 +404,9 @@ tbody tr:hover td{background:var(--surface2)}
             </div>
           </div>
           <div class="card">
-            <div class="card-title">Detection Options</div>
+            <div class="card-title" data-i18n="detection_options">Detection Options</div>
             <div class="form-group">
-              <div class="form-label">ML Model</div>
+              <div class="form-label" data-i18n="ml_model">ML Model</div>
               <div class="model-pills" id="modelPills">
                 <div class="model-pill active" data-model="">Auto</div>
                 <div class="model-pill" data-model="random_forest">Random Forest</div>
@@ -420,7 +420,7 @@ tbody tr:hover td{background:var(--surface2)}
               <label class="toggle"><input type="checkbox" id="ensembleToggle"/><span class="toggle-track"></span></label>
               Use Ensemble (all models averaged — most accurate)
             </div>
-            <button class="btn btn-primary btn-full" id="classifyBtn" disabled onclick="classifyImage()">
+            <button class="btn btn-primary btn-full" id="classifyBtn" disabled onclick="classifyImage()" data-i18n-btn="detect_btn">
               <span>🔍</span> Detect Disease
             </button>
           </div>
@@ -428,8 +428,8 @@ tbody tr:hover td{background:var(--surface2)}
         <div id="classifyResult">
           <div class="card empty" style="padding:60px 20px">
             <span class="empty-icon">🌱</span>
-            <div style="font-size:1rem;font-weight:600;margin-bottom:8px;color:var(--text)">Ready to Analyze</div>
-            <p>Upload a clear photo of a plant leaf or crop to detect diseases and get treatment recommendations</p>
+            <div style="font-size:1rem;font-weight:600;margin-bottom:8px;color:var(--text)" data-i18n="ready_analyze">Ready to Analyze</div>
+            <p data-i18n="ready_desc">Upload a clear photo of a plant leaf or crop to detect diseases and get treatment recommendations</p>
           </div>
         </div>
       </div>
@@ -439,7 +439,7 @@ tbody tr:hover td{background:var(--surface2)}
     <div class="page" id="page-batch">
       <div class="g2">
         <div class="card">
-          <div class="card-title">Batch Upload (up to 20 images)</div>
+          <div class="card-title" data-i18n="batch_title">Batch Upload (up to 20 images)</div>
           <div class="drop-zone" id="dz-batch">
             <input type="file" id="fi-batch" accept="image/*" multiple/>
             <span class="dz-icon">📦</span>
@@ -462,9 +462,9 @@ tbody tr:hover td{background:var(--surface2)}
             <label class="toggle"><input type="checkbox" id="batchEnsemble"/><span class="toggle-track"></span></label>
             Use Ensemble (all models averaged)
           </div>
-          <button class="btn btn-primary btn-full" id="batchBtn" disabled onclick="runBatch()"><span>�</span> Run Batch Detection</button>
+          <button class="btn btn-primary btn-full" id="batchBtn" disabled onclick="runBatch()" data-i18n-btn="run_batch"><span>📦</span> Run Batch Detection</button>
         </div>
-        <div class="card"><div class="card-title">Batch Results</div><div id="batchResults"><div class="empty"><span class="empty-icon">📦</span><p>No results yet</p></div></div></div>
+        <div class="card"><div class="card-title" data-i18n="batch_results">Batch Results</div><div id="batchResults"><div class="empty"><span class="empty-icon">📦</span><p data-i18n="no_results_yet">No results yet</p></div></div></div>
       </div>
     </div>
 
@@ -472,7 +472,7 @@ tbody tr:hover td{background:var(--surface2)}
     <div class="page" id="page-url">
       <div class="g2">
         <div class="card">
-          <div class="card-title">Classify from URL</div>
+          <div class="card-title" data-i18n="classify_url_title">Classify from URL</div>
           <div class="form-group"><div class="form-label">Image URL</div><input class="form-input" type="url" id="urlInput" placeholder="https://example.com/leaf.jpg"/></div>
           <div class="form-group"><div class="form-label">Model</div>
             <select class="form-select" id="urlModel">
@@ -508,15 +508,15 @@ tbody tr:hover td{background:var(--surface2)}
           <select class="form-select" style="width:100px" id="histPer" onchange="loadHistory(1)">
             <option value="10">10/page</option><option value="20">20/page</option><option value="50">50/page</option>
           </select>
-          <button class="btn btn-secondary btn-sm" onclick="loadHistory(1)">🔄 Refresh</button>
-          <button class="btn btn-secondary btn-sm" onclick="exportCSV()">⬇️ Export CSV</button>
+          <button class="btn btn-secondary btn-sm" onclick="loadHistory(1)" data-i18n="refresh">🔄 Refresh</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportCSV()" data-i18n="export_csv">⬇️ Export CSV</button>
           <span style="margin-left:auto;font-size:.76rem;color:var(--text3)" id="histCount"></span>
         </div>
       </div>
       <div class="card">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>ID</th><th>Thumb</th><th>Filename</th><th>Disease</th><th>Confidence</th><th>Model</th><th>Speed</th><th>Date</th><th></th></tr></thead>
+            <thead><tr><th data-i18n="col_id">ID</th><th data-i18n="col_thumb">Thumb</th><th data-i18n="col_filename">Filename</th><th data-i18n="col_disease">Disease</th><th data-i18n="col_confidence">Confidence</th><th data-i18n="col_model">Model</th><th data-i18n="col_speed">Speed</th><th data-i18n="col_date">Date</th><th></th></tr></thead>
             <tbody id="histBody"><tr><td colspan="9"><div class="loading-state"><div class="loader loader-lg"></div></div></td></tr></tbody>
           </table>
         </div>
@@ -529,44 +529,44 @@ tbody tr:hover td{background:var(--surface2)}
 
       <!-- KPI ROW -->
       <div class="g4" style="margin-bottom:20px" id="an-kpis">
-        <div class="stat-card" style="--accent-color:var(--accent)"><div class="stat-icon">🖼️</div><div class="stat-value" id="an-total">—</div><div class="stat-label">Total Scans</div><div class="stat-sub" id="an-total-sub"></div></div>
-        <div class="stat-card" style="--accent-color:var(--green)"><div class="stat-icon">✅</div><div class="stat-value" id="an-healthy">—</div><div class="stat-label">Healthy Plants</div><div class="stat-sub" id="an-healthy-sub"></div></div>
-        <div class="stat-card" style="--accent-color:var(--red)"><div class="stat-icon">🦠</div><div class="stat-value" id="an-diseased">—</div><div class="stat-label">Diseased Plants</div><div class="stat-sub" id="an-diseased-sub"></div></div>
-        <div class="stat-card" style="--accent-color:var(--yellow)"><div class="stat-icon">🎯</div><div class="stat-value" id="an-avgconf">—</div><div class="stat-label">Avg Confidence</div><div class="stat-sub" id="an-conf-sub"></div></div>
+        <div class="stat-card" style="--accent-color:var(--accent)"><div class="stat-icon">🖼️</div><div class="stat-value" id="an-total">—</div><div class="stat-label" data-i18n="total_scans_an">Total Scans</div><div class="stat-sub" id="an-total-sub"></div></div>
+        <div class="stat-card" style="--accent-color:var(--green)"><div class="stat-icon">✅</div><div class="stat-value" id="an-healthy">—</div><div class="stat-label" data-i18n="healthy_plants">Healthy Plants</div><div class="stat-sub" id="an-healthy-sub"></div></div>
+        <div class="stat-card" style="--accent-color:var(--red)"><div class="stat-icon">🦠</div><div class="stat-value" id="an-diseased">—</div><div class="stat-label" data-i18n="diseased_plants">Diseased Plants</div><div class="stat-sub" id="an-diseased-sub"></div></div>
+        <div class="stat-card" style="--accent-color:var(--yellow)"><div class="stat-icon">🎯</div><div class="stat-value" id="an-avgconf">—</div><div class="stat-label" data-i18n="avg_confidence">Avg Confidence</div><div class="stat-sub" id="an-conf-sub"></div></div>
       </div>
 
       <!-- TABS -->
       <div class="tabs" id="an-tabs">
-        <button class="tab active" onclick="switchTab('analytics','overview',this)">📊 Overview</button>
-        <button class="tab" onclick="switchTab('analytics','timeline',this)">📅 Timeline</button>
-        <button class="tab" onclick="switchTab('analytics','diseases',this)">🦠 Diseases</button>
-        <button class="tab" onclick="switchTab('analytics','models',this)">🤖 Models</button>
-        <button class="tab" onclick="switchTab('analytics','confidence',this)">🎯 Confidence</button>
-        <button class="tab" onclick="switchTab('analytics','performance',this)">⚡ Performance</button>
+        <button class="tab active" onclick="switchTab('analytics','overview',this)" data-i18n="overview">📊 Overview</button>
+        <button class="tab" onclick="switchTab('analytics','timeline',this)" data-i18n="timeline">📅 Timeline</button>
+        <button class="tab" onclick="switchTab('analytics','diseases',this)" data-i18n="diseases_tab">🦠 Diseases</button>
+        <button class="tab" onclick="switchTab('analytics','models',this)" data-i18n="models_tab">🤖 Models</button>
+        <button class="tab" onclick="switchTab('analytics','confidence',this)" data-i18n="confidence_tab">🎯 Confidence</button>
+        <button class="tab" onclick="switchTab('analytics','performance',this)" data-i18n="performance">⚡ Performance</button>
       </div>
 
       <!-- TAB: OVERVIEW -->
       <div class="tab-panel active" id="analytics-overview">
         <div class="g3" style="margin-bottom:18px">
           <div class="card" style="grid-column:span 2">
-            <div class="card-title">Disease Distribution — Doughnut</div>
+            <div class="card-title" data-i18n="disease_doughnut">Disease Distribution — Doughnut</div>
             <div style="display:flex;align-items:center;gap:20px">
               <div style="position:relative;height:260px;width:260px;flex-shrink:0"><canvas id="chartDoughnut"></canvas></div>
               <div id="doughnutLegend" style="flex:1"></div>
             </div>
           </div>
           <div class="card">
-            <div class="card-title">Disease Risk Map — All 12 Diseases</div>
+            <div class="card-title" data-i18n="disease_risk_map">Disease Risk Map — All 12 Diseases</div>
             <div style="position:relative;height:260px"><canvas id="chartSeverityPie"></canvas></div>
           </div>
         </div>
         <div class="g2" style="margin-bottom:18px">
           <div class="card">
-            <div class="card-title">Confidence by Disease — Radar</div>
+            <div class="card-title" data-i18n="confidence_radar">Confidence by Disease — Radar</div>
             <div style="position:relative;height:280px"><canvas id="chartRadar"></canvas></div>
           </div>
           <div class="card">
-            <div class="card-title">Prediction Confidence — Min / Avg / Max</div>
+            <div class="card-title" data-i18n="confidence_range">Prediction Confidence — Min / Avg / Max</div>
             <div style="position:relative;height:280px"><canvas id="chartHBar"></canvas></div>
           </div>
         </div>
@@ -821,40 +821,132 @@ const API = window.location.origin;
 // ── LANGUAGE SYSTEM ──
 const TRANSLATIONS = {
   en: {
-    dashboard:'Dashboard', classify:'Classify Image', batch:'Batch Upload', url:'Classify URL',
-    history:'Detection History', analytics:'Analytics', compare:'Compare Models',
-    analyzer:'Image Analyzer', models:'ML Models', diseases:'Disease Library', search:'Search',
-    share_result:'Share Result', email_report:'Email Report', copy_text:'Copy Text',
-    detect_btn:'Detect Disease', upload_prompt:'Drop image here or click to upload',
-    connecting:'Connecting...', api_online:'API Online', api_offline:'API Offline',
-    no_detections:'No detections yet', copied:'Copied!', new_scan:'New Scan'
+    dashboard:'Dashboard',classify:'Classify Image',batch:'Batch Upload',url:'Classify URL',
+    history:'Detection History',analytics:'Analytics',compare:'Compare Models',
+    analyzer:'Image Analyzer',models:'ML Models',diseases:'Disease Library',search:'Search',
+    quick_search:'Quick search...',connecting:'Connecting...',api_online:'API Online',api_offline:'API Offline',
+    total_scans:'Total Scans',today:'Today',this_week:'This Week',avg_speed:'Avg Speed',accuracy:'Accuracy',
+    detections_over_time:'Detections Over Time',disease_distribution:'Disease Distribution',
+    model_usage:'Model Usage',recent_detections:'Recent Detections',no_detections:'No detections yet',
+    upload_image:'Upload Plant / Leaf Image',drop_image:'Drop your plant image here',
+    click_browse:'Click to browse',drag_drop:'or drag & drop',detection_options:'Detection Options',
+    ml_model:'ML Model',use_ensemble:'Use Ensemble (all models averaged — most accurate)',
+    detect_btn:'Detect Disease',ready_analyze:'Ready to Analyze',
+    ready_desc:'Upload a clear photo of a plant leaf or crop to detect diseases and get treatment recommendations',
+    batch_title:'Batch Upload (up to 20 images)',drop_multiple:'Drop multiple plant images',
+    select_files:'Click to browse — select up to 20 files',model_label:'Model',auto_active:'Auto (Active)',
+    use_ensemble_avg:'Use Ensemble (all models averaged)',run_batch:'Run Batch Detection',
+    batch_results:'Batch Results',no_results_yet:'No results yet',
+    classify_url_title:'Classify from URL',image_url:'Image URL',classify_url_btn:'Classify URL',
+    enter_url:'Enter a URL to classify',all_diseases:'All Diseases',all_models:'All Models',
+    refresh:'Refresh',export_csv:'Export CSV',col_id:'ID',col_thumb:'Thumb',col_filename:'Filename',
+    col_disease:'Disease',col_confidence:'Confidence',col_model:'Model',col_speed:'Speed',col_date:'Date',
+    overview:'Overview',timeline:'Timeline',diseases_tab:'Diseases',models_tab:'Models',
+    confidence_tab:'Confidence',performance:'Performance',
+    total_scans_an:'Total Scans',healthy_plants:'Healthy Plants',diseased_plants:'Diseased Plants',avg_confidence:'Avg Confidence',
+    share_result:'Share Result',email_report:'Email Report',copy_text:'Copy Text',copied:'Copied!',new_scan:'New Scan',
+    compare_title:'Compare Models',run_compare:'Run Comparison',
+    analyzer_title:'Image Analyzer',run_analysis:'Analyze Image',
+    search_placeholder:'Search by image name or disease...',search_btn:'Search',search_results:'Search Results',
+    disease_risk_map:'Disease Risk Map — All 12 Diseases',confidence_radar:'Avg Confidence by Disease — Radar',
+    confidence_range:'Prediction Confidence — Min / Avg / Max',disease_doughnut:'Disease Distribution — Doughnut',
+    disease_breakdown:'Disease Breakdown — Detailed Table',
   },
   hi: {
-    dashboard:'डैशबोर्ड', classify:'छवि वर्गीकृत करें', batch:'बैच अपलोड', url:'URL वर्गीकृत करें',
-    history:'पहचान इतिहास', analytics:'विश्लेषण', compare:'मॉडल तुलना',
-    analyzer:'छवि विश्लेषक', models:'ML मॉडल', diseases:'रोग पुस्तकालय', search:'खोज',
-    share_result:'परिणाम साझा करें', email_report:'ईमेल रिपोर्ट', copy_text:'कॉपी करें',
-    detect_btn:'रोग पहचानें', upload_prompt:'यहाँ छवि छोड़ें या अपलोड करें',
-    connecting:'जोड़ रहे हैं...', api_online:'API ऑनलाइन', api_offline:'API ऑफलाइन',
-    no_detections:'अभी तक कोई पहचान नहीं', copied:'कॉपी हो गया!', new_scan:'नई स्कैन'
+    dashboard:'डैशबोर्ड',classify:'छवि वर्गीकृत करें',batch:'बैच अपलोड',url:'URL वर्गीकृत करें',
+    history:'पहचान इतिहास',analytics:'विश्लेषण',compare:'मॉडल तुलना',
+    analyzer:'छवि विश्लेषक',models:'ML मॉडल',diseases:'रोग पुस्तकालय',search:'खोज',
+    quick_search:'त्वरित खोज...',connecting:'जोड़ रहे हैं...',api_online:'API ऑनलाइन',api_offline:'API ऑफलाइन',
+    total_scans:'कुल स्कैन',today:'आज',this_week:'इस सप्ताह',avg_speed:'औसत गति',accuracy:'सटीकता',
+    detections_over_time:'समय के साथ पहचान',disease_distribution:'रोग वितरण',
+    model_usage:'मॉडल उपयोग',recent_detections:'हाल की पहचान',no_detections:'अभी तक कोई पहचान नहीं',
+    upload_image:'पौधे की छवि अपलोड करें',drop_image:'यहाँ पौधे की छवि छोड़ें',
+    click_browse:'ब्राउज़ करें',drag_drop:'या खींचें और छोड़ें',detection_options:'पहचान विकल्प',
+    ml_model:'ML मॉडल',use_ensemble:'एन्सेम्बल उपयोग करें (सभी मॉडल — सबसे सटीक)',
+    detect_btn:'रोग पहचानें',ready_analyze:'विश्लेषण के लिए तैयार',
+    ready_desc:'रोग पहचानने के लिए पौधे की पत्ती की स्पष्ट फोटो अपलोड करें',
+    batch_title:'बैच अपलोड (20 छवियाँ तक)',drop_multiple:'कई पौधों की छवियाँ छोड़ें',
+    select_files:'ब्राउज़ करें — 20 फ़ाइलें',model_label:'मॉडल',auto_active:'स्वचालित (सक्रिय)',
+    use_ensemble_avg:'एन्सेम्बल उपयोग करें',run_batch:'बैच पहचान चलाएं',
+    batch_results:'बैच परिणाम',no_results_yet:'अभी तक कोई परिणाम नहीं',
+    classify_url_title:'URL से वर्गीकृत करें',image_url:'छवि URL',classify_url_btn:'URL वर्गीकृत करें',
+    enter_url:'URL दर्ज करें',all_diseases:'सभी रोग',all_models:'सभी मॉडल',
+    refresh:'ताज़ा करें',export_csv:'CSV निर्यात',col_id:'ID',col_thumb:'थंबनेल',col_filename:'फ़ाइल नाम',
+    col_disease:'रोग',col_confidence:'विश्वास',col_model:'मॉडल',col_speed:'गति',col_date:'तारीख',
+    overview:'अवलोकन',timeline:'समयरेखा',diseases_tab:'रोग',models_tab:'मॉडल',
+    confidence_tab:'विश्वास',performance:'प्रदर्शन',
+    total_scans_an:'कुल स्कैन',healthy_plants:'स्वस्थ पौधे',diseased_plants:'रोगग्रस्त पौधे',avg_confidence:'औसत विश्वास',
+    share_result:'परिणाम साझा करें',email_report:'ईमेल रिपोर्ट',copy_text:'कॉपी करें',copied:'कॉपी हो गया!',new_scan:'नई स्कैन',
+    compare_title:'मॉडल तुलना',run_compare:'तुलना चलाएं',
+    analyzer_title:'छवि विश्लेषक',run_analysis:'छवि विश्लेषण करें',
+    search_placeholder:'छवि नाम या रोग से खोजें...',search_btn:'खोजें',search_results:'खोज परिणाम',
+    disease_risk_map:'रोग जोखिम मानचित्र',confidence_radar:'रोग द्वारा औसत विश्वास',
+    confidence_range:'पहचान विश्वास — न्यूनतम / औसत / अधिकतम',disease_doughnut:'रोग वितरण',
+    disease_breakdown:'रोग विवरण — विस्तृत तालिका',
   },
   mr: {
-    dashboard:'डॅशबोर्ड', classify:'प्रतिमा वर्गीकृत करा', batch:'बॅच अपलोड', url:'URL वर्गीकृत करा',
-    history:'शोध इतिहास', analytics:'विश्लेषण', compare:'मॉडेल तुलना',
-    analyzer:'प्रतिमा विश्लेषक', models:'ML मॉडेल', diseases:'रोग ग्रंथालय', search:'शोध',
-    share_result:'निकाल शेअर करा', email_report:'ईमेल अहवाल', copy_text:'कॉपी करा',
-    detect_btn:'रोग ओळखा', upload_prompt:'येथे प्रतिमा टाका किंवा अपलोड करा',
-    connecting:'जोडत आहे...', api_online:'API ऑनलाइन', api_offline:'API ऑफलाइन',
-    no_detections:'अद्याप कोणतीही शोध नाही', copied:'कॉपी झाले!', new_scan:'नवीन स्कॅन'
+    dashboard:'डॅशबोर्ड',classify:'प्रतिमा वर्गीकृत करा',batch:'बॅच अपलोड',url:'URL वर्गीकृत करा',
+    history:'शोध इतिहास',analytics:'विश्लेषण',compare:'मॉडेल तुलना',
+    analyzer:'प्रतिमा विश्लेषक',models:'ML मॉडेल',diseases:'रोग ग्रंथालय',search:'शोध',
+    quick_search:'जलद शोध...',connecting:'जोडत आहे...',api_online:'API ऑनलाइन',api_offline:'API ऑफलाइन',
+    total_scans:'एकूण स्कॅन',today:'आज',this_week:'या आठवड्यात',avg_speed:'सरासरी वेग',accuracy:'अचूकता',
+    detections_over_time:'वेळानुसार शोध',disease_distribution:'रोग वितरण',
+    model_usage:'मॉडेल वापर',recent_detections:'अलीकडील शोध',no_detections:'अद्याप कोणतीही शोध नाही',
+    upload_image:'वनस्पती प्रतिमा अपलोड करा',drop_image:'येथे वनस्पती प्रतिमा टाका',
+    click_browse:'ब्राउझ करा',drag_drop:'किंवा ड्रॅग आणि ड्रॉप करा',detection_options:'शोध पर्याय',
+    ml_model:'ML मॉडेल',use_ensemble:'एन्सेम्बल वापरा (सर्व मॉडेल — सर्वात अचूक)',
+    detect_btn:'रोग ओळखा',ready_analyze:'विश्लेषणासाठी तयार',
+    ready_desc:'रोग शोधण्यासाठी वनस्पतीच्या पानाचा स्पष्ट फोटो अपलोड करा',
+    batch_title:'बॅच अपलोड (20 प्रतिमांपर्यंत)',drop_multiple:'अनेक वनस्पती प्रतिमा टाका',
+    select_files:'ब्राउझ करा — 20 फाइल्स',model_label:'मॉडेल',auto_active:'स्वयंचलित (सक्रिय)',
+    use_ensemble_avg:'एन्सेम्बल वापरा',run_batch:'बॅच शोध चालवा',
+    batch_results:'बॅच निकाल',no_results_yet:'अद्याप कोणतेही निकाल नाहीत',
+    classify_url_title:'URL वरून वर्गीकृत करा',image_url:'प्रतिमा URL',classify_url_btn:'URL वर्गीकृत करा',
+    enter_url:'URL प्रविष्ट करा',all_diseases:'सर्व रोग',all_models:'सर्व मॉडेल',
+    refresh:'रिफ्रेश',export_csv:'CSV निर्यात',col_id:'ID',col_thumb:'थंबनेल',col_filename:'फाइल नाव',
+    col_disease:'रोग',col_confidence:'विश्वास',col_model:'मॉडेल',col_speed:'वेग',col_date:'तारीख',
+    overview:'आढावा',timeline:'कालरेषा',diseases_tab:'रोग',models_tab:'मॉडेल',
+    confidence_tab:'विश्वास',performance:'कामगिरी',
+    total_scans_an:'एकूण स्कॅन',healthy_plants:'निरोगी वनस्पती',diseased_plants:'रोगग्रस्त वनस्पती',avg_confidence:'सरासरी विश्वास',
+    share_result:'निकाल शेअर करा',email_report:'ईमेल अहवाल',copy_text:'कॉपी करा',copied:'कॉपी झाले!',new_scan:'नवीन स्कॅन',
+    compare_title:'मॉडेल तुलना',run_compare:'तुलना चालवा',
+    analyzer_title:'प्रतिमा विश्लेषक',run_analysis:'प्रतिमा विश्लेषण करा',
+    search_placeholder:'प्रतिमा नाव किंवा रोगाने शोधा...',search_btn:'शोधा',search_results:'शोध निकाल',
+    disease_risk_map:'रोग जोखीम नकाशा',confidence_radar:'रोगानुसार सरासरी विश्वास',
+    confidence_range:'पहचान विश्वास — किमान / सरासरी / कमाल',disease_doughnut:'रोग वितरण',
+    disease_breakdown:'रोग तपशील — सविस्तर तक्ता',
   },
   te: {
-    dashboard:'డాష్‌బోర్డ్', classify:'చిత్రాన్ని వర్గీకరించు', batch:'బ్యాచ్ అప్‌లోడ్', url:'URL వర్గీకరించు',
-    history:'గుర్తింపు చరిత్ర', analytics:'విశ్లేషణ', compare:'మోడల్ పోలిక',
-    analyzer:'చిత్ర విశ్లేషకుడు', models:'ML మోడళ్లు', diseases:'వ్యాధి గ్రంథాలయం', search:'వెతుకు',
-    share_result:'ఫలితం పంచుకోండి', email_report:'ఇమెయిల్ నివేదిక', copy_text:'కాపీ చేయి',
-    detect_btn:'వ్యాధిని గుర్తించు', upload_prompt:'ఇక్కడ చిత్రాన్ని వదలండి లేదా అప్‌లోడ్ చేయండి',
-    connecting:'కనెక్ట్ అవుతోంది...', api_online:'API ఆన్‌లైన్', api_offline:'API ఆఫ్‌లైన్',
-    no_detections:'ఇంకా గుర్తింపులు లేవు', copied:'కాపీ అయింది!', new_scan:'కొత్త స్కాన్'
+    dashboard:'డాష్‌బోర్డ్',classify:'చిత్రాన్ని వర్గీకరించు',batch:'బ్యాచ్ అప్‌లోడ్',url:'URL వర్గీకరించు',
+    history:'గుర్తింపు చరిత్ర',analytics:'విశ్లేషణ',compare:'మోడల్ పోలిక',
+    analyzer:'చిత్ర విశ్లేషకుడు',models:'ML మోడళ్లు',diseases:'వ్యాధి గ్రంథాలయం',search:'వెతుకు',
+    quick_search:'త్వరిత శోధన...',connecting:'కనెక్ట్ అవుతోంది...',api_online:'API ఆన్‌లైన్',api_offline:'API ఆఫ్‌లైన్',
+    total_scans:'మొత్తం స్కాన్లు',today:'ఈరోజు',this_week:'ఈ వారం',avg_speed:'సగటు వేగం',accuracy:'ఖచ్చితత్వం',
+    detections_over_time:'కాలక్రమేణా గుర్తింపులు',disease_distribution:'వ్యాధి పంపిణీ',
+    model_usage:'మోడల్ వినియోగం',recent_detections:'ఇటీవలి గుర్తింపులు',no_detections:'ఇంకా గుర్తింపులు లేవు',
+    upload_image:'మొక్క చిత్రాన్ని అప్‌లోడ్ చేయండి',drop_image:'ఇక్కడ మొక్క చిత్రాన్ని వదలండి',
+    click_browse:'బ్రౌజ్ చేయండి',drag_drop:'లేదా లాగి వదలండి',detection_options:'గుర్తింపు ఎంపికలు',
+    ml_model:'ML మోడల్',use_ensemble:'ఎన్సెంబుల్ ఉపయోగించు (అన్ని మోడళ్లు — అత్యంత ఖచ్చితమైన)',
+    detect_btn:'వ్యాధిని గుర్తించు',ready_analyze:'విశ్లేషణకు సిద్ధం',
+    ready_desc:'వ్యాధులను గుర్తించడానికి మొక్క ఆకు ఫోటోను అప్‌లోడ్ చేయండి',
+    batch_title:'బ్యాచ్ అప్‌లోడ్ (20 చిత్రాల వరకు)',drop_multiple:'అనేక మొక్కల చిత్రాలను వదలండి',
+    select_files:'బ్రౌజ్ చేయండి — 20 ఫైళ్లు',model_label:'మోడల్',auto_active:'స్వయంచాలక (సక్రియం)',
+    use_ensemble_avg:'ఎన్సెంబుల్ ఉపయోగించు',run_batch:'బ్యాచ్ గుర్తింపు అమలు చేయండి',
+    batch_results:'బ్యాచ్ ఫలితాలు',no_results_yet:'ఇంకా ఫలితాలు లేవు',
+    classify_url_title:'URL నుండి వర్గీకరించు',image_url:'చిత్రం URL',classify_url_btn:'URL వర్గీకరించు',
+    enter_url:'URL నమోదు చేయండి',all_diseases:'అన్ని వ్యాధులు',all_models:'అన్ని మోడళ్లు',
+    refresh:'రిఫ్రెష్',export_csv:'CSV ఎగుమతి',col_id:'ID',col_thumb:'థంబ్‌నెయిల్',col_filename:'ఫైల్ పేరు',
+    col_disease:'వ్యాధి',col_confidence:'నమ్మకం',col_model:'మోడల్',col_speed:'వేగం',col_date:'తేదీ',
+    overview:'అవలోకనం',timeline:'కాలరేఖ',diseases_tab:'వ్యాధులు',models_tab:'మోడళ్లు',
+    confidence_tab:'నమ్మకం',performance:'పనితీరు',
+    total_scans_an:'మొత్తం స్కాన్లు',healthy_plants:'ఆరోగ్యకరమైన మొక్కలు',diseased_plants:'వ్యాధిగ్రస్త మొక్కలు',avg_confidence:'సగటు నమ్మకం',
+    share_result:'ఫలితం పంచుకోండి',email_report:'ఇమెయిల్ నివేదిక',copy_text:'కాపీ చేయి',copied:'కాపీ అయింది!',new_scan:'కొత్త స్కాన్',
+    compare_title:'మోడల్ పోలిక',run_compare:'పోలిక అమలు చేయండి',
+    analyzer_title:'చిత్ర విశ్లేషకుడు',run_analysis:'చిత్రాన్ని విశ్లేషించు',
+    search_placeholder:'చిత్రం పేరు లేదా వ్యాధి ద్వారా వెతుకు...',search_btn:'వెతుకు',search_results:'శోధన ఫలితాలు',
+    disease_risk_map:'వ్యాధి ప్రమాద మ్యాప్',confidence_radar:'వ్యాధి ద్వారా సగటు నమ్మకం',
+    confidence_range:'గుర్తింపు నమ్మకం — కనిష్ట / సగటు / గరిష్ట',disease_doughnut:'వ్యాధి పంపిణీ',
+    disease_breakdown:'వ్యాధి వివరణ — వివరణాత్మక పట్టిక',
   }
 };
 let LANG = localStorage.getItem('crophealth_lang') || 'en';
@@ -866,18 +958,33 @@ function setLang(lang){
   applyLang();
 }
 function applyLang(){
-  const navMap = {dashboard:'nav-dashboard',classify:'nav-classify',batch:'nav-batch',url:'nav-url',
+  const navMap={dashboard:'nav-dashboard',classify:'nav-classify',batch:'nav-batch',url:'nav-url',
     history:'nav-history',analytics:'nav-analytics',compare:'nav-compare',
     analyzer:'nav-analyzer',models:'nav-models',diseases:'nav-diseases',search:'nav-search'};
   Object.entries(navMap).forEach(([key,id])=>{
-    const el=document.getElementById(id);
-    if(!el) return;
+    const el=document.getElementById(id); if(!el) return;
     const icon=el.querySelector('.nav-icon')?.outerHTML||'';
     const badge=el.querySelector('.nav-badge')?.outerHTML||'';
     el.innerHTML=icon+T(key)+badge;
   });
+  // All elements with data-i18n
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key=el.getAttribute('data-i18n');
+    if(el.tagName==='INPUT'||el.tagName==='TEXTAREA') el.placeholder=T(key);
+    else el.textContent=T(key);
+  });
+  // Buttons with icon + text
+  document.querySelectorAll('[data-i18n-btn]').forEach(el=>{
+    const key=el.getAttribute('data-i18n-btn');
+    const icon=el.querySelector('span')?.outerHTML||'';
+    el.innerHTML=icon+' '+T(key);
+  });
   const st=document.getElementById('statusText');
-  if(st) st.textContent = st.textContent.includes('Online')||st.textContent.includes('ऑनलाइन')||st.textContent.includes('ఆన్‌లైన్') ? T('api_online') : T('api_offline');
+  if(st&&st.textContent!==T('connecting')){
+    const isOnline=st.textContent.includes('Online')||st.textContent.includes('ऑनलाइन')||st.textContent.includes('ఆన్‌లైన్')||st.textContent.includes('ऑनलाइन');
+    st.textContent=isOnline?T('api_online'):T('api_offline');
+  }
+  const qs=document.getElementById('quickSearch'); if(qs) qs.placeholder=T('quick_search');
 }
 document.addEventListener('DOMContentLoaded',()=>{
   const sel=document.getElementById('langSelect');
