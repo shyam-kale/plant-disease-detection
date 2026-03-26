@@ -1393,12 +1393,14 @@ function renderClassifyResult(d){
 <script>
 // ── BATCH ──
 let batchFiles=[];
-setupDZ('dz-batch','fi-batch',()=>{});
-document.getElementById('fi-batch').addEventListener('change',e=>{
-  batchFiles=Array.from(e.target.files).slice(0,20);
-  const el=document.getElementById('batchFileList');
-  el.innerHTML=batchFiles.map((f,i)=>`<div class="list-row"><span style="color:var(--text3);font-size:.76rem">${i+1}.</span><span style="flex:1;font-size:.8rem">${esc(f.name)}</span><span style="font-size:.72rem;color:var(--text3)">${(f.size/1024).toFixed(1)}KB</span></div>`).join('');
-  document.getElementById('batchBtn').disabled=batchFiles.length===0;
+document.addEventListener('DOMContentLoaded',()=>{
+  setupDZ('dz-batch','fi-batch',()=>{});
+  document.getElementById('fi-batch').addEventListener('change',e=>{
+    batchFiles=Array.from(e.target.files).slice(0,20);
+    const el=document.getElementById('batchFileList');
+    el.innerHTML=batchFiles.map((f,i)=>`<div class="list-row"><span style="color:var(--text3);font-size:.76rem">${i+1}.</span><span style="flex:1;font-size:.8rem">${esc(f.name)}</span><span style="font-size:.72rem;color:var(--text3)">${(f.size/1024).toFixed(1)}KB</span></div>`).join('');
+    document.getElementById('batchBtn').disabled=batchFiles.length===0;
+  });
 });
 
 async function runBatch(){
@@ -1424,7 +1426,7 @@ async function runBatch(){
     </table></div>`;
     toast(`Batch done: ${d.succeeded} detected`,'success');
   }catch{toast('Batch request failed','error')}
-  finally{btn.disabled=false;btn.innerHTML='<span>🚀</span> Run Batch Detection'}
+  finally{btn.disabled=false;btn.innerHTML='<span>📦</span> Run Batch Detection'}
 }
 
 // ── URL CLASSIFY ──
@@ -1582,7 +1584,28 @@ function size_label(n){
 // ── ANALYTICS ──
 async function loadAnalytics(){
   try{
-    const[lR,tR,mR]=await Promise.all([api('/stats/labels'),api('/stats/timeline?days=7'),api('/models')]);
+    const[lR,tR,mR,sR]=await Promise.all([api('/stats/labels'),api('/stats/timeline?days=7'),api('/models'),api('/stats')]);
+
+    // ── KPI cards ──
+    if(sR.ok){
+      const s=sR.data.data;
+      const total=s.total_predictions||0;
+      const healthy=(s.by_label||[]).find(l=>l.label==='healthy')?.cnt||0;
+      const diseased=total-healthy;
+      const avgConf=s.by_label?.length
+        ? (s.by_label.reduce((a,l)=>a+(l.avg_conf||0)*l.cnt,0)/Math.max(total,1)).toFixed(1)
+        : '—';
+      document.getElementById('an-total').textContent=total||'—';
+      document.getElementById('an-healthy').textContent=healthy||'—';
+      document.getElementById('an-diseased').textContent=diseased||'—';
+      document.getElementById('an-avgconf').textContent=avgConf!=='—'?avgConf+'%':'—';
+      document.getElementById('an-total-sub').textContent=`+${s.today_predictions||0} today`;
+      const hp=total?((healthy/total)*100).toFixed(0):0;
+      document.getElementById('an-healthy-sub').textContent=total?`${hp}% of total`:'';
+      document.getElementById('an-diseased-sub').textContent=total?`${100-hp}% of total`:'';
+      document.getElementById('an-conf-sub').textContent=`${s.week_predictions||0} this week`;
+    }
+
     if(lR.ok){
       const labels=lR.data.data?.labels||[];
       renderDoughnut(labels);
