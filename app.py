@@ -1102,19 +1102,34 @@ def predict_batch():
 @app.route("/predict/url", methods=["POST"])
 @rate_limit
 def predict_url():
-    import urllib.request
+    import urllib.request, ssl
     try:
-        body = request.get_json(silent=True) or {}
-        url = (body.get("url") or "").strip()
+        body = request.get_json(silent=True, force=True) or {}
+        url = (body.get("url") or request.form.get("url") or request.args.get("url") or "").strip()
         if not url: return error_response("'url' is required.")
-        model = (body.get("model") or "").strip() or None
+        if not url.startswith(("http://", "https://")):
+            return error_response("URL must start with http:// or https://")
+        model = (body.get("model") or request.form.get("model") or "").strip() or None
         ensemble = bool(body.get("ensemble", False))
-        with urllib.request.urlopen(url, timeout=10) as resp:
-            image_bytes = resp.read(Config.MAX_FILE_SIZE + 1)
+
+        # Bypass SSL verification issues and use a longer timeout
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        req = urllib.request.Request(url, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'image/*,*/*'
+        })
+        try:
+            with urllib.request.urlopen(req, timeout=20, context=ctx) as resp:
+                image_bytes = resp.read(Config.MAX_FILE_SIZE + 1)
+        except Exception as fetch_err:
+            return error_response(f"Could not fetch image from URL: {fetch_err}", 400)
+
         if len(image_bytes) > Config.MAX_FILE_SIZE:
-            return error_response("Remote image too large.")
+            return error_response("Remote image too large (max 15MB).")
         if not validate_image(image_bytes):
-            return error_response("URL does not point to a valid image.")
+            return error_response("URL does not point to a valid image (PNG/JPG/WEBP etc.).")
 
         class FakeFile:
             filename = url.split("/")[-1].split("?")[0] or "url_image.jpg"
