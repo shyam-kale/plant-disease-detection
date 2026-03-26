@@ -355,6 +355,12 @@ tbody tr:hover td{background:var(--surface2)}
       <button class="icon-btn" onclick="toggleTheme()" id="themeBtn" title="Toggle theme">🌙</button>
       <button class="icon-btn" onclick="refreshPage()" title="Refresh">🔄</button>
       <button class="icon-btn" onclick="nav('classify')" title="New scan">➕</button>
+      <select id="langSelect" onchange="setLang(this.value)" title="Language" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:.75rem;cursor:pointer">
+        <option value="en">🌐 EN</option>
+        <option value="hi">हिंदी</option>
+        <option value="mr">मराठी</option>
+        <option value="te">తెలుగు</option>
+      </select>
     </div>
   </header>
 
@@ -811,6 +817,98 @@ tbody tr:hover td{background:var(--surface2)}
 
 <script>
 const API = window.location.origin;
+
+// ── LANGUAGE SYSTEM ──
+const TRANSLATIONS = {
+  en: {
+    dashboard:'Dashboard', classify:'Classify Image', batch:'Batch Upload', url:'Classify URL',
+    history:'Detection History', analytics:'Analytics', compare:'Compare Models',
+    analyzer:'Image Analyzer', models:'ML Models', diseases:'Disease Library', search:'Search',
+    share_result:'Share Result', email_report:'Email Report', copy_text:'Copy Text',
+    detect_btn:'Detect Disease', upload_prompt:'Drop image here or click to upload',
+    connecting:'Connecting...', api_online:'API Online', api_offline:'API Offline',
+    no_detections:'No detections yet', copied:'Copied!', new_scan:'New Scan'
+  },
+  hi: {
+    dashboard:'डैशबोर्ड', classify:'छवि वर्गीकृत करें', batch:'बैच अपलोड', url:'URL वर्गीकृत करें',
+    history:'पहचान इतिहास', analytics:'विश्लेषण', compare:'मॉडल तुलना',
+    analyzer:'छवि विश्लेषक', models:'ML मॉडल', diseases:'रोग पुस्तकालय', search:'खोज',
+    share_result:'परिणाम साझा करें', email_report:'ईमेल रिपोर्ट', copy_text:'कॉपी करें',
+    detect_btn:'रोग पहचानें', upload_prompt:'यहाँ छवि छोड़ें या अपलोड करें',
+    connecting:'जोड़ रहे हैं...', api_online:'API ऑनलाइन', api_offline:'API ऑफलाइन',
+    no_detections:'अभी तक कोई पहचान नहीं', copied:'कॉपी हो गया!', new_scan:'नई स्कैन'
+  },
+  mr: {
+    dashboard:'डॅशबोर्ड', classify:'प्रतिमा वर्गीकृत करा', batch:'बॅच अपलोड', url:'URL वर्गीकृत करा',
+    history:'शोध इतिहास', analytics:'विश्लेषण', compare:'मॉडेल तुलना',
+    analyzer:'प्रतिमा विश्लेषक', models:'ML मॉडेल', diseases:'रोग ग्रंथालय', search:'शोध',
+    share_result:'निकाल शेअर करा', email_report:'ईमेल अहवाल', copy_text:'कॉपी करा',
+    detect_btn:'रोग ओळखा', upload_prompt:'येथे प्रतिमा टाका किंवा अपलोड करा',
+    connecting:'जोडत आहे...', api_online:'API ऑनलाइन', api_offline:'API ऑफलाइन',
+    no_detections:'अद्याप कोणतीही शोध नाही', copied:'कॉपी झाले!', new_scan:'नवीन स्कॅन'
+  },
+  te: {
+    dashboard:'డాష్‌బోర్డ్', classify:'చిత్రాన్ని వర్గీకరించు', batch:'బ్యాచ్ అప్‌లోడ్', url:'URL వర్గీకరించు',
+    history:'గుర్తింపు చరిత్ర', analytics:'విశ్లేషణ', compare:'మోడల్ పోలిక',
+    analyzer:'చిత్ర విశ్లేషకుడు', models:'ML మోడళ్లు', diseases:'వ్యాధి గ్రంథాలయం', search:'వెతుకు',
+    share_result:'ఫలితం పంచుకోండి', email_report:'ఇమెయిల్ నివేదిక', copy_text:'కాపీ చేయి',
+    detect_btn:'వ్యాధిని గుర్తించు', upload_prompt:'ఇక్కడ చిత్రాన్ని వదలండి లేదా అప్‌లోడ్ చేయండి',
+    connecting:'కనెక్ట్ అవుతోంది...', api_online:'API ఆన్‌లైన్', api_offline:'API ఆఫ్‌లైన్',
+    no_detections:'ఇంకా గుర్తింపులు లేవు', copied:'కాపీ అయింది!', new_scan:'కొత్త స్కాన్'
+  }
+};
+let LANG = localStorage.getItem('crophealth_lang') || 'en';
+function T(key){ return (TRANSLATIONS[LANG]||TRANSLATIONS.en)[key] || (TRANSLATIONS.en[key] || key); }
+function setLang(lang){
+  LANG = lang;
+  localStorage.setItem('crophealth_lang', lang);
+  document.getElementById('langSelect').value = lang;
+  applyLang();
+}
+function applyLang(){
+  const navMap = {dashboard:'nav-dashboard',classify:'nav-classify',batch:'nav-batch',url:'nav-url',
+    history:'nav-history',analytics:'nav-analytics',compare:'nav-compare',
+    analyzer:'nav-analyzer',models:'nav-models',diseases:'nav-diseases',search:'nav-search'};
+  Object.entries(navMap).forEach(([key,id])=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    const icon=el.querySelector('.nav-icon')?.outerHTML||'';
+    const badge=el.querySelector('.nav-badge')?.outerHTML||'';
+    el.innerHTML=icon+T(key)+badge;
+  });
+  const st=document.getElementById('statusText');
+  if(st) st.textContent = st.textContent.includes('Online')||st.textContent.includes('ऑनलाइन')||st.textContent.includes('ఆన్‌లైన్') ? T('api_online') : T('api_offline');
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  const sel=document.getElementById('langSelect');
+  if(sel) sel.value=LANG;
+  applyLang();
+});
+
+// ── SHARE FUNCTIONS ──
+function buildShareText(predId){
+  const card=document.getElementById('classifyResult');
+  if(!card) return '';
+  const status=card.querySelector('.result-value')?.textContent||'';
+  const conf=card.querySelector('.result-conf')?.textContent||'';
+  const model=card.querySelector('.result-meta')?.textContent||'';
+  return `🌿 CropHealth AI Detection\n\n🔍 Result: ${status}\n📊 ${conf}\n🤖 ${model}\n\n🔗 ${window.location.href}`;
+}
+function shareWhatsApp(predId){
+  const text=encodeURIComponent(buildShareText(predId));
+  window.open(`https://wa.me/?text=${text}`,'_blank');
+}
+function shareEmail(predId){
+  const body=buildShareText(predId);
+  const subject=encodeURIComponent('CropHealth AI — Plant Disease Detection Report');
+  window.location.href=`mailto:?subject=${subject}&body=${encodeURIComponent(body)}`;
+}
+function copyResult(predId){
+  const text=buildShareText(predId);
+  navigator.clipboard.writeText(text).then(()=>toast(T('copied'),'success')).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();toast(T('copied'),'success');
+  });
+}
 const LABELS = ['healthy','leaf_blight','powdery_mildew','rust','leaf_spot','bacterial_wilt','mosaic_virus','downy_mildew','anthracnose','root_rot','nutrient_deficiency','pest_damage'];
 const COLORS = ['#22c55e','#ef4444','#f59e0b','#f97316','#ec4899','#dc2626','#8b5cf6','#06b6d4','#64748b','#a16207','#eab308','#84cc16'];
 const SEV_COLORS = {none:'#22c55e',medium:'#eab308',high:'#ef4444',critical:'#dc2626'};
@@ -1150,6 +1248,24 @@ function renderClassifyResult(d){
     <div><span style="color:var(--text3)">Aspect Ratio:</span> ${m.aspect_ratio}</div>
     <div style="grid-column:1/-1"><span style="color:var(--text3)">SHA-256:</span> <span style="font-family:monospace;font-size:.7rem">${(m.file_hash||'').slice(0,32)}...</span></div>
   </div></div>`;
+
+  // Share buttons
+  html+=`<div class="card" style="margin-bottom:14px">
+    <div class="card-title">${T('share_result')}</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="shareWhatsApp(${d.id})" style="display:flex;align-items:center;gap:8px;padding:10px 18px;background:#25d366;color:#fff;border:none;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.126 1.533 5.858L.057 23.428a.5.5 0 0 0 .609.61l5.699-1.461A11.945 11.945 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.885 0-3.65-.52-5.16-1.427l-.37-.22-3.382.867.893-3.293-.242-.381A9.96 9.96 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+        WhatsApp
+      </button>
+      <button onclick="shareEmail(${d.id})" style="display:flex;align-items:center;gap:8px;padding:10px 18px;background:#6366f1;color:#fff;border:none;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+        ${T('email_report')}
+      </button>
+      <button onclick="copyResult(${d.id})" style="display:flex;align-items:center;gap:8px;padding:10px 18px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer">
+        📋 ${T('copy_text')}
+      </button>
+    </div>
+  </div>`;
 
   document.getElementById('classifyResult').innerHTML=html;
 
