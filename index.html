@@ -1257,13 +1257,15 @@ async function classifyImage(){
     S.lastPredId=data.data.id;
     renderClassifyResult(data.data);
     const cached=data.data.cached?' (cached)':'';
-    toast(`Detected: ${data.data.prediction.replace(/_/g,' ')} (${data.data.confidence}%)${cached}`,data.data.prediction==='healthy'?'success':'warning');
+    const pred=data.data.prediction||data.data.prediction_result||'unknown';
+    toast(`Detected: ${pred.replace(/_/g,' ')} (${data.data.confidence}%)${cached}`,pred==='healthy'?'success':'warning');
     if(!data.data.cached)document.getElementById('badge-hist').textContent=parseInt(document.getElementById('badge-hist').textContent||0)+1;
   }catch(e){toast('Cannot reach API: '+e.message,'error')}
   finally{btn.disabled=false;btn.innerHTML='<span>🔍</span> Detect Disease'}
 }
 
 function renderClassifyResult(d){
+  d.prediction = d.prediction || d.prediction_result || 'unknown';
   const di=d.disease_info||{};
   const sc=di.color||SEV_COLORS[di.severity]||'var(--accent)';
   const sev=di.severity||'none';

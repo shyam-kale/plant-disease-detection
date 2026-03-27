@@ -1023,7 +1023,8 @@ def run_pipeline(file, model_name=None, use_ensemble=False) -> dict:
         logger.info("Cache hit for hash %s", file_hash[:16])
         cached_data = serialize_row(cached)
         cached_data["cached"] = True
-        cached_data["disease_info"] = Config.DISEASE_INFO.get(cached_data.get("prediction_result", ""), {})
+        cached_data["prediction"] = cached_data.get("prediction") or cached_data.get("prediction_result", "")
+        cached_data["disease_info"] = Config.DISEASE_INFO.get(cached_data.get("prediction", ""), {})
         return cached_data
 
     proc = ImageProcessor(image_bytes)
@@ -1105,7 +1106,15 @@ def predict_url():
     import urllib.request, ssl
     try:
         body = request.get_json(silent=True, force=True) or {}
+        raw_data = request.get_data(as_text=True)
+        logger.debug("predict_url body=%s raw=%r ctype=%s", body, raw_data[:200], request.content_type)
+        # If get_json failed, try parsing raw manually
+        if not body and raw_data:
+            import json as _json
+            try: body = _json.loads(raw_data)
+            except Exception: pass
         url = (body.get("url") or request.form.get("url") or request.args.get("url") or "").strip()
+        logger.debug("predict_url url=%r", url)
         if not url: return error_response("'url' is required.")
         if not url.startswith(("http://", "https://")):
             return error_response("URL must start with http:// or https://")
