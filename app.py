@@ -2,19 +2,29 @@ import os, io, re, uuid, time, json, logging, hashlib, threading, warnings, csv,
 from datetime import datetime
 from functools import wraps
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 import numpy as np
 from flask import Flask, request, jsonify, g, Response, send_from_directory
 from flask_cors import CORS
 from PIL import Image, ImageFilter, ImageEnhance, ImageStat
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, VotingClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import classification_report
 warnings.filterwarnings("ignore")
+
+# ── Try importing PyTorch (optional — falls back to sklearn if not available) ──
+try:
+    import torch
+    import torchvision.transforms as T
+    from torchvision import models as tv_models
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
@@ -41,7 +51,7 @@ class Config:
     DEBUG         = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
     HOST          = os.environ.get("HOST", "0.0.0.0")
     PORT          = int(os.environ.get("PORT", 5000))
-    FEATURE_VER   = "v3.1"
+    FEATURE_VER   = "v4.0"
 
     LABELS = [
         "healthy", "leaf_blight", "powdery_mildew", "rust", "leaf_spot",
@@ -737,11 +747,163 @@ class ImageProcessor:
 
 
 # ─────────────────────────────────────────────
+# DEEP LEARNING MODEL (MobileNetV2 — PlantVillage)
+# ─────────────────────────────────────────────
+# 38 PlantVillage classes → mapped to our 12 disease categories
+PLANTVILLAGE_CLASSES = [
+    "Apple___Apple_scab","Apple___Black_rot","Apple___Cedar_apple_rust","Apple___healthy",
+    "Blueberry___healthy","Cherry_(including_sour)___Powdery_mildew","Cherry_(including_sour)___healthy",
+    "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot","Corn_(maize)___Common_rust_",
+    "Corn_(maize)___Northern_Leaf_Blight","Corn_(maize)___healthy",
+    "Grape___Black_rot","Grape___Esca_(Black_Measles)","Grape___Leaf_blight_(Isariopsis_Leaf_Spot)","Grape___healthy",
+    "Orange___Haunglongbing_(Citrus_greening)",
+    "Peach___Bacterial_spot","Peach___healthy",
+    "Pepper,_bell___Bacterial_spot","Pepper,_bell___healthy",
+    "Potato___Early_blight","Potato___Late_blight","Potato___healthy",
+    "Raspberry___healthy","Soybean___healthy","Squash___Powdery_mildew",
+    "Strawberry___Leaf_scorch","Strawberry___healthy",
+    "Tomato___Bacterial_spot","Tomato___Early_blight","Tomato___Late_blight",
+    "Tomato___Leaf_Mold","Tomato___Septoria_leaf_spot",
+    "Tomato___Spider_mites Two-spotted_spider_mite","Tomato___Target_Spot",
+    "Tomato___Tomato_Yellow_Leaf_Curl_Virus","Tomato___Tomato_mosaic_virus","Tomato___healthy",
+]
+
+# Map PlantVillage 38-class → our 12 disease labels
+PV_TO_DISEASE = {
+    "Apple___Apple_scab": "leaf_spot",
+    "Apple___Black_rot": "anthracnose",
+    "Apple___Cedar_apple_rust": "rust",
+    "Apple___healthy": "healthy",
+    "Blueberry___healthy": "healthy",
+    "Cherry_(including_sour)___Powdery_mildew": "powdery_mildew",
+    "Cherry_(including_sour)___healthy": "healthy",
+    "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot": "leaf_spot",
+    "Corn_(maize)___Common_rust_": "rust",
+    "Corn_(maize)___Northern_Leaf_Blight": "leaf_blight",
+    "Corn_(maize)___healthy": "healthy",
+    "Grape___Black_rot": "anthracnose",
+    "Grape___Esca_(Black_Measles)": "mosaic_virus",
+    "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)": "leaf_blight",
+    "Grape___healthy": "healthy",
+    "Orange___Haunglongbing_(Citrus_greening)": "nutrient_deficiency",
+    "Peach___Bacterial_spot": "bacterial_wilt",
+    "Peach___healthy": "healthy",
+    "Pepper,_bell___Bacterial_spot": "bacterial_wilt",
+    "Pepper,_bell___healthy": "healthy",
+    "Potato___Early_blight": "leaf_blight",
+    "Potato___Late_blight": "downy_mildew",
+    "Potato___healthy": "healthy",
+    "Raspberry___healthy": "healthy",
+    "Soybean___healthy": "healthy",
+    "Squash___Powdery_mildew": "powdery_mildew",
+    "Strawberry___Leaf_scorch": "leaf_spot",
+    "Strawberry___healthy": "healthy",
+    "Tomato___Bacterial_spot": "bacterial_wilt",
+    "Tomato___Early_blight": "leaf_blight",
+    "Tomato___Late_blight": "downy_mildew",
+    "Tomato___Leaf_Mold": "powdery_mildew",
+    "Tomato___Septoria_leaf_spot": "leaf_spot",
+    "Tomato___Spider_mites Two-spotted_spider_mite": "pest_damage",
+    "Tomato___Target_Spot": "anthracnose",
+    "Tomato___Tomato_Yellow_Leaf_Curl_Virus": "mosaic_virus",
+    "Tomato___Tomato_mosaic_virus": "mosaic_virus",
+    "Tomato___healthy": "healthy",
+}
+
+class DeepLeafModel:
+    """MobileNetV2 pre-trained on PlantVillage — downloads once, caches locally."""
+    MODEL_PATH = Path("models/mobilenetv2_plant.pth")
+    HF_REPO    = "Daksh159/plant-disease-mobilenetv2"
+    HF_FILE    = "mobilenetv2_plant.pth"
+
+    def __init__(self):
+        self.model = None
+        self.device = None
+        self.transform = None
+        self._ready = False
+        if TORCH_AVAILABLE:
+            threading.Thread(target=self._load, daemon=True).start()
+
+    def _load(self):
+        try:
+            self.MODEL_PATH.parent.mkdir(exist_ok=True)
+            if not self.MODEL_PATH.exists():
+                logger.info("Downloading PlantVillage MobileNetV2 from HuggingFace...")
+                from huggingface_hub import hf_hub_download
+                path = hf_hub_download(repo_id=self.HF_REPO, filename=self.HF_FILE,
+                                       local_dir=str(self.MODEL_PATH.parent))
+                logger.info("Model downloaded to %s", path)
+
+            self.device = torch.device("cpu")
+            net = tv_models.mobilenet_v2(weights=None)
+            net.classifier[1] = torch.nn.Sequential(
+                torch.nn.Dropout(0.2),
+                torch.nn.Linear(net.classifier[1].in_features, 38)
+            )
+            state = torch.load(str(self.MODEL_PATH), map_location="cpu", weights_only=True)
+            # Handle various checkpoint formats
+            if isinstance(state, dict) and "model_state_dict" in state:
+                state = state["model_state_dict"]
+            elif isinstance(state, dict) and "state_dict" in state:
+                state = state["state_dict"]
+            net.load_state_dict(state, strict=False)
+            net.eval()
+            self.model = net
+            self.transform = T.Compose([
+                T.Resize((224, 224)),
+                T.ToTensor(),
+                T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            ])
+            self._ready = True
+            logger.info("DeepLeafModel ready (MobileNetV2 PlantVillage 38-class)")
+        except Exception as e:
+            logger.error("DeepLeafModel load failed: %s", e)
+            self._ready = False
+
+    def predict(self, pil_image: Image.Image) -> dict:
+        """Returns prediction mapped to our 12 disease labels."""
+        if not self._ready or self.model is None:
+            return None
+        try:
+            x = self.transform(pil_image.convert("RGB")).unsqueeze(0)
+            with torch.no_grad():
+                logits = self.model(x)
+                probs = torch.softmax(logits, dim=1)[0].numpy()
+
+            # Map 38 PV classes → 12 disease labels by summing probabilities
+            disease_probs = {d: 0.0 for d in Config.LABELS}
+            for i, pv_cls in enumerate(PLANTVILLAGE_CLASSES):
+                disease = PV_TO_DISEASE.get(pv_cls, "healthy")
+                disease_probs[disease] += float(probs[i])
+
+            # Normalize
+            total = sum(disease_probs.values()) or 1.0
+            disease_probs = {k: round(v / total * 100, 2) for k, v in disease_probs.items()}
+
+            best = max(disease_probs, key=disease_probs.get)
+            sorted_probs = sorted(disease_probs.items(), key=lambda x: -x[1])
+            top3 = [{"label": l, "probability": p} for l, p in sorted_probs[:3]]
+
+            return {
+                "prediction": best,
+                "confidence": disease_probs[best],
+                "model_used": "deep_mobilenetv2",
+                "top3": top3,
+                "all_probabilities": disease_probs,
+            }
+        except Exception as e:
+            logger.error("DeepLeafModel.predict error: %s", e)
+            return None
+
+deep_model = DeepLeafModel()
+
+
+# ─────────────────────────────────────────────
 # ML MODEL REGISTRY
 # ─────────────────────────────────────────────
 class ModelRegistry:
     N_FEATURES = 32
-    N_SAMPLES  = 1200
+    N_SAMPLES  = 2400  # 200 per class — fast startup, still good separation
 
     def __init__(self):
         self.pipelines: dict = {}
@@ -753,51 +915,228 @@ class ModelRegistry:
         logger.info("ModelRegistry ready. Active: %s", self.active_model)
 
     def _build_data(self):
-        """Build synthetic training data with disease-specific feature signals."""
+        """
+        Build realistic synthetic training data.
+        Feature vector (32 dims):
+        0=r_mean, 1=g_mean, 2=b_mean, 3=r_std, 4=g_std, 5=b_std,
+        6=green_dom, 7=yellow_idx, 8=brown_idx, 9=white_idx,
+        10=brightness, 11=contrast, 12=gray_range, 13=sharpness, 14=saturation, 15=noise,
+        16=entropy, 17=edge_density, 18=spot_density, 19=light_spot_density,
+        20=color_uniformity, 21=warm_cool, 22=spread_r, 23=spread_g, 24=spread_b,
+        25=symmetry, 26=aspect, 27=megapix, 28=width, 29=height, 30=filesize, 31=green_ratio
+        """
         np.random.seed(42)
-        labels = Config.LABELS
-        n_per = self.N_SAMPLES // len(labels)
-        # Feature indices:
-        # 0=r_mean,1=g_mean,2=b_mean,3=r_std,4=g_std,5=b_std
-        # 6=green_dom,7=yellow_idx,8=brown_idx,9=white_idx
-        # 10=brightness,11=contrast,12=gray_range,13=sharpness,14=saturation,15=noise
-        # 16=entropy,17=edge_density,18=spot_density,19=light_spot_density
-        # 20=color_uniformity,21=warm_cool,22=spread_r,23=spread_g,24=spread_b
-        # 25=symmetry,26=aspect,27=megapix,28=width,29=height,30=filesize,31=green_ratio
-        signals = {
-            "healthy":             {1:0.58, 6:0.28, 10:0.48, 20:0.78, 25:0.82, 31:1.25},
-            "leaf_blight":         {8:0.28, 11:0.40, 17:0.32, 18:0.22, 16:7.0},
-            "powdery_mildew":      {9:0.38, 10:0.75, 19:0.32, 14:0.06, 11:0.10},
-            "rust":                {0:0.55, 8:0.30, 21:0.32, 17:0.24, 7:0.22},
-            "leaf_spot":           {11:0.44, 17:0.37, 18:0.30, 16:6.7, 15:0.24},
-            "bacterial_wilt":      {10:0.30, 11:0.17, 14:0.10, 25:0.42, 6:-0.08},
-            "mosaic_virus":        {4:0.40, 14:0.44, 16:7.4, 11:0.34, 7:0.27},
-            "downy_mildew":        {5:0.40, 10:0.37, 15:0.27, 17:0.20, 9:0.22},
-            "anthracnose":         {0:0.20, 1:0.20, 2:0.20, 11:0.47, 18:0.27},
-            "root_rot":            {10:0.24, 0:0.40, 14:0.14, 15:0.32, 6:-0.13},
-            "nutrient_deficiency": {7:0.32, 1:0.50, 10:0.57, 14:0.17, 6:0.07},
-            "pest_damage":         {17:0.42, 11:0.37, 16:7.0, 18:0.32, 25:0.37},
+        n = self.N_SAMPLES // len(Config.LABELS)
+
+        def make(n, base, noise, overrides):
+            """Generate n samples with base values + noise + per-feature overrides."""
+            X = np.random.randn(n, self.N_FEATURES).astype(np.float32)
+            # Apply base + noise per feature
+            for i in range(self.N_FEATURES):
+                X[:, i] = base[i] + X[:, i] * noise[i]
+            # Apply strong disease-specific signals
+            for fi, (mu, sig) in overrides.items():
+                X[:, fi] = mu + np.random.randn(n).astype(np.float32) * sig
+            return np.clip(X, 0, 1)
+
+        # Base: neutral image stats (mid-range everything)
+        base = np.array([0.40, 0.42, 0.35, 0.12, 0.12, 0.10,
+                         0.05, 0.15, 0.05, 0.20,
+                         0.42, 0.18, 0.55, 0.08, 0.15, 0.03,
+                         6.50, 0.08, 0.05, 0.05,
+                         0.70, 0.05, 0.04, 0.04, 0.03,
+                         0.75, 0.75, 0.25, 0.50, 0.50, 0.30, 0.90],
+                        dtype=np.float32)
+        noise = np.array([0.06, 0.06, 0.06, 0.04, 0.04, 0.04,
+                          0.04, 0.04, 0.04, 0.05,
+                          0.06, 0.04, 0.08, 0.03, 0.05, 0.02,
+                          0.40, 0.03, 0.03, 0.03,
+                          0.06, 0.04, 0.02, 0.02, 0.02,
+                          0.06, 0.10, 0.08, 0.08, 0.08, 0.08, 0.10],
+                         dtype=np.float32)
+
+        # Disease-specific overrides: {feature_idx: (mean, std)}
+        # Values chosen to reflect real plant disease visual characteristics
+        disease_profiles = {
+            "healthy": {
+                # High green, low brown, high symmetry, high green_ratio
+                1: (0.55, 0.04),   # g_mean high
+                6: (0.22, 0.03),   # green_dom high
+                8: (0.02, 0.02),   # brown_idx very low
+                10: (0.50, 0.04),  # brightness normal
+                14: (0.20, 0.04),  # saturation moderate
+                20: (0.82, 0.04),  # color_uniformity high
+                25: (0.85, 0.04),  # symmetry high
+                31: (1.30, 0.08),  # green_ratio high (clipped to 1)
+                18: (0.02, 0.01),  # spot_density very low
+                17: (0.05, 0.02),  # edge_density low
+            },
+            "leaf_blight": {
+                # Brown lesions, high contrast, high edges, dark spots
+                8: (0.28, 0.04),   # brown_idx high
+                0: (0.48, 0.04),   # r_mean elevated
+                1: (0.32, 0.04),   # g_mean reduced
+                11: (0.38, 0.04),  # contrast high
+                17: (0.28, 0.04),  # edge_density high
+                18: (0.22, 0.04),  # spot_density high
+                16: (7.20, 0.20),  # entropy high
+                14: (0.12, 0.03),  # saturation low (necrotic)
+                25: (0.55, 0.05),  # symmetry low
+                20: (0.45, 0.05),  # color_uniformity low
+            },
+            "powdery_mildew": {
+                # White powdery coating — high brightness, high white_idx, low saturation
+                9: (0.55, 0.04),   # white_idx very high
+                10: (0.72, 0.04),  # brightness high
+                19: (0.35, 0.04),  # light_spot_density high
+                14: (0.05, 0.02),  # saturation very low
+                11: (0.10, 0.03),  # contrast low (uniform white)
+                2: (0.55, 0.04),   # b_mean elevated (grayish white)
+                1: (0.55, 0.04),   # g_mean elevated
+                0: (0.55, 0.04),   # r_mean elevated
+                20: (0.75, 0.04),  # color_uniformity high (uniform coating)
+                18: (0.03, 0.02),  # spot_density low
+            },
+            "rust": {
+                # Orange-brown pustules — high red, warm, brown spots
+                0: (0.58, 0.04),   # r_mean high
+                8: (0.28, 0.04),   # brown_idx high
+                21: (0.30, 0.04),  # warm_cool high (warm)
+                7: (0.25, 0.04),   # yellow_idx elevated
+                17: (0.22, 0.04),  # edge_density moderate
+                18: (0.18, 0.04),  # spot_density moderate (pustules)
+                14: (0.22, 0.04),  # saturation moderate
+                1: (0.28, 0.04),   # g_mean reduced
+                11: (0.32, 0.04),  # contrast moderate
+                25: (0.60, 0.05),  # symmetry reduced
+            },
+            "leaf_spot": {
+                # Circular dark spots with yellow halos
+                18: (0.28, 0.04),  # spot_density high
+                17: (0.32, 0.04),  # edge_density high (spot borders)
+                11: (0.42, 0.04),  # contrast high
+                16: (6.80, 0.25),  # entropy high
+                7: (0.20, 0.04),   # yellow_idx elevated (halos)
+                15: (0.22, 0.04),  # noise high
+                8: (0.18, 0.04),   # brown_idx moderate
+                20: (0.42, 0.05),  # color_uniformity low
+                25: (0.58, 0.05),  # symmetry low
+                14: (0.18, 0.04),  # saturation moderate
+            },
+            "bacterial_wilt": {
+                # Wilting — dull, low saturation, low brightness, asymmetric
+                10: (0.28, 0.04),  # brightness low (wilted/dark)
+                14: (0.08, 0.03),  # saturation very low
+                11: (0.15, 0.03),  # contrast low
+                25: (0.40, 0.05),  # symmetry very low (wilted)
+                6: (-0.05, 0.03),  # green_dom negative (yellowing)
+                1: (0.35, 0.04),   # g_mean reduced
+                20: (0.38, 0.05),  # color_uniformity low
+                17: (0.12, 0.03),  # edge_density low (soft wilted edges)
+                7: (0.18, 0.04),   # yellow_idx elevated
+                15: (0.08, 0.03),  # noise low
+            },
+            "mosaic_virus": {
+                # Mottled yellow-green pattern — high saturation variation, high entropy
+                4: (0.38, 0.04),   # g_std high (mottled)
+                14: (0.42, 0.04),  # saturation high
+                16: (7.50, 0.20),  # entropy very high (complex pattern)
+                11: (0.32, 0.04),  # contrast moderate
+                7: (0.28, 0.04),   # yellow_idx high (yellow patches)
+                1: (0.45, 0.04),   # g_mean moderate
+                20: (0.30, 0.05),  # color_uniformity very low (mottled)
+                22: (0.08, 0.02),  # spread_r high
+                23: (0.08, 0.02),  # spread_g high
+                25: (0.50, 0.05),  # symmetry low
+            },
+            "downy_mildew": {
+                # Gray-purple underside, angular yellow patches
+                5: (0.38, 0.04),   # b_std high
+                2: (0.42, 0.04),   # b_mean elevated (purple/gray)
+                10: (0.38, 0.04),  # brightness moderate-low
+                15: (0.25, 0.04),  # noise moderate
+                17: (0.18, 0.04),  # edge_density moderate
+                9: (0.25, 0.04),   # white_idx moderate
+                7: (0.22, 0.04),   # yellow_idx elevated
+                20: (0.48, 0.05),  # color_uniformity low
+                21: (-0.05, 0.04), # warm_cool negative (cool/blue)
+                14: (0.15, 0.04),  # saturation low
+            },
+            "anthracnose": {
+                # Dark sunken lesions, salmon spore masses
+                18: (0.25, 0.04),  # spot_density high (dark lesions)
+                11: (0.45, 0.04),  # contrast high
+                0: (0.22, 0.04),   # r_mean low (dark lesions)
+                1: (0.22, 0.04),   # g_mean low
+                2: (0.22, 0.04),   # b_mean low
+                17: (0.30, 0.04),  # edge_density high
+                16: (6.90, 0.25),  # entropy high
+                8: (0.20, 0.04),   # brown_idx moderate
+                20: (0.40, 0.05),  # color_uniformity low
+                14: (0.20, 0.04),  # saturation moderate
+            },
+            "root_rot": {
+                # Dark roots, yellowing leaves, low brightness
+                10: (0.22, 0.04),  # brightness low
+                0: (0.42, 0.04),   # r_mean elevated (yellowing)
+                7: (0.28, 0.04),   # yellow_idx high
+                14: (0.12, 0.03),  # saturation low
+                15: (0.30, 0.04),  # noise high
+                6: (-0.10, 0.03),  # green_dom negative
+                1: (0.30, 0.04),   # g_mean reduced
+                25: (0.45, 0.05),  # symmetry low
+                20: (0.35, 0.05),  # color_uniformity low
+                11: (0.20, 0.04),  # contrast low
+            },
+            "nutrient_deficiency": {
+                # Interveinal chlorosis — yellow with green veins
+                7: (0.35, 0.04),   # yellow_idx high
+                1: (0.52, 0.04),   # g_mean moderate-high (veins still green)
+                10: (0.55, 0.04),  # brightness high (pale/yellow)
+                14: (0.15, 0.03),  # saturation low
+                6: (0.08, 0.03),   # green_dom low
+                17: (0.10, 0.03),  # edge_density low (soft)
+                20: (0.55, 0.05),  # color_uniformity moderate
+                18: (0.04, 0.02),  # spot_density low
+                11: (0.22, 0.04),  # contrast moderate
+                25: (0.70, 0.05),  # symmetry moderate
+            },
+            "pest_damage": {
+                # Holes, chewed edges — high edge density, irregular spots
+                17: (0.40, 0.04),  # edge_density very high (holes/tears)
+                11: (0.35, 0.04),  # contrast high
+                16: (7.10, 0.20),  # entropy high
+                18: (0.30, 0.04),  # spot_density high (holes appear dark)
+                25: (0.38, 0.05),  # symmetry very low (irregular damage)
+                15: (0.20, 0.04),  # noise high
+                20: (0.38, 0.05),  # color_uniformity low
+                8: (0.15, 0.04),   # brown_idx moderate
+                1: (0.40, 0.04),   # g_mean moderate
+                14: (0.18, 0.04),  # saturation moderate
+            },
         }
+
         X_parts, y_parts = [], []
-        for label in labels:
-            base = np.random.rand(n_per, self.N_FEATURES).astype(np.float32) * 0.22 + 0.09
-            for fi, val in signals.get(label, {}).items():
-                base[:, fi] = np.clip(val + np.random.randn(n_per) * 0.038, -1, 2).astype(np.float32)
-            X_parts.append(base); y_parts.extend([label] * n_per)
+        for label in Config.LABELS:
+            overrides = disease_profiles.get(label, {})
+            samples = make(n, base, noise, overrides)
+            X_parts.append(samples)
+            y_parts.extend([label] * n)
+
         self.X_train = np.vstack(X_parts)
         self.y_train = np.array(y_parts)
-        logger.info("Training data: %s, %d classes", self.X_train.shape, len(labels))
+        logger.info("Training data: X=%s, classes=%d", self.X_train.shape, len(Config.LABELS))
 
     def _make_pipe(self, clf):
         return Pipeline([("scaler", StandardScaler()), ("clf", clf)])
 
     def _train_all(self):
         defs = {
-            "knn":                 KNeighborsClassifier(n_neighbors=11, weights="distance", metric="euclidean"),
-            "random_forest":       RandomForestClassifier(n_estimators=250, max_depth=16, min_samples_leaf=2, min_samples_split=4, random_state=42, n_jobs=-1),
-            "logistic_regression": LogisticRegression(max_iter=1000, C=2.0, multi_class="multinomial", solver="lbfgs", random_state=42),
-            "gradient_boosting":   GradientBoostingClassifier(n_estimators=180, max_depth=6, learning_rate=0.1, subsample=0.9, random_state=42),
-            "svm":                 SVC(kernel="rbf", C=2.5, gamma="scale", probability=True, random_state=42),
+            "knn":                 KNeighborsClassifier(n_neighbors=7, weights="distance", metric="euclidean"),
+            "random_forest":       RandomForestClassifier(n_estimators=200, max_depth=16, min_samples_leaf=2, max_features="sqrt", random_state=42, n_jobs=-1),
+            "logistic_regression": LogisticRegression(max_iter=1000, C=1.0, multi_class="multinomial", solver="lbfgs", random_state=42),
+            "gradient_boosting":   GradientBoostingClassifier(n_estimators=80, max_depth=4, learning_rate=0.12, subsample=0.85, random_state=42),
+            "svm":                 SVC(kernel="rbf", C=3.0, gamma="scale", probability=True, random_state=42),
         }
         for name, clf in defs.items():
             try:
@@ -1019,19 +1358,63 @@ def run_pipeline(file, model_name=None, use_ensemble=False) -> dict:
 
     file_hash = compute_hash(image_bytes)
     cached = PredictionDAO.get_by_hash(file_hash)
-    if cached and (time.time() - cached.get("created_at", datetime.min).timestamp() if hasattr(cached.get("created_at"), "timestamp") else 0) < 3600:
-        logger.info("Cache hit for hash %s", file_hash[:16])
-        cached_data = serialize_row(cached)
-        cached_data["cached"] = True
-        cached_data["prediction"] = cached_data.get("prediction") or cached_data.get("prediction_result", "")
-        cached_data["disease_info"] = Config.DISEASE_INFO.get(cached_data.get("prediction", ""), {})
-        return cached_data
+    if cached:
+        try:
+            created = cached.get("created_at", "")
+            if isinstance(created, str):
+                created_dt = datetime.fromisoformat(created.replace("Z",""))
+            else:
+                created_dt = created
+            age = time.time() - created_dt.timestamp()
+        except Exception:
+            age = 9999
+        if age < 3600:
+            logger.info("Cache hit for hash %s", file_hash[:16])
+            cached_data = serialize_row(cached)
+            cached_data["cached"] = True
+            cached_data["prediction"] = cached_data.get("prediction") or cached_data.get("prediction_result", "")
+            cached_data["disease_info"] = Config.DISEASE_INFO.get(cached_data.get("prediction", ""), {})
+            return cached_data
 
     proc = ImageProcessor(image_bytes)
     proc.resize().make_thumbnail()
-    features = proc.extract_features()
+    pil_img = proc.proc  # PIL Image after resize
+    features = proc.extract_features()  # always compute for storage
 
-    result = model_registry.predict_ensemble(features) if use_ensemble else model_registry.predict(features, model_name)
+    # ── Use deep model if available and no specific sklearn model requested ──
+    use_deep = (deep_model._ready and
+                model_name not in ("knn","random_forest","logistic_regression","gradient_boosting","svm"))
+
+    if use_deep and not use_ensemble:
+        result = deep_model.predict(pil_img)
+        if result is None:
+            use_deep = False
+
+    if not use_deep and not use_ensemble:
+        result = model_registry.predict(features, model_name)
+
+    if use_ensemble:
+        sklearn_result = model_registry.predict_ensemble(features)
+        if deep_model._ready:
+            deep_result = deep_model.predict(pil_img)
+            if deep_result:
+                blended = {}
+                for lbl in Config.LABELS:
+                    dp = deep_result["all_probabilities"].get(lbl, 0) / 100
+                    sp = sklearn_result["all_probabilities"].get(lbl, 0) / 100
+                    blended[lbl] = round((dp * 0.6 + sp * 0.4) * 100, 2)
+                best = max(blended, key=blended.get)
+                sorted_b = sorted(blended.items(), key=lambda x: -x[1])
+                result = {
+                    "prediction": best, "confidence": blended[best],
+                    "model_used": "ensemble",
+                    "top3": [{"label": l, "probability": p} for l, p in sorted_b[:3]],
+                    "all_probabilities": blended,
+                }
+            else:
+                result = sklearn_result
+        else:
+            result = sklearn_result
 
     ms = round((time.time() - t0) * 1000, 2)
     thumb = proc.get_thumbnail_b64()
@@ -1093,12 +1476,13 @@ def predict_batch():
             try:
                 results.append(run_pipeline(f, model, ensemble))
             except Exception as e:
+                logger.error("Batch file error [%s]: %s", f.filename, e, exc_info=True)
                 errors.append({"filename": sanitize_filename(f.filename or "?"), "error": str(e)})
         return success_response({"total": len(files), "succeeded": len(results),
                                   "failed": len(errors), "results": results, "errors": errors})
     except Exception as e:
-        logger.error("Batch error: %s", e)
-        return error_response("Batch failed.", 500)
+        logger.error("Batch outer error: %s", e, exc_info=True)
+        return error_response(f"Batch failed: {str(e)}", 500)
 
 @app.route("/predict/url", methods=["POST"])
 @rate_limit
@@ -1451,6 +1835,7 @@ def health():
                     "database": "connected" if db_ok else "disconnected",
                     "models_loaded": len(model_registry.pipelines),
                     "active_model": model_registry.active_model,
+                    "deep_model": "ready" if deep_model._ready else ("loading" if TORCH_AVAILABLE else "unavailable"),
                     "version": "3.1.0",
                     "uptime_seconds": int(time.time() - app.config.get("START_TIME", time.time())),
                     "timestamp": datetime.utcnow().isoformat() + "Z"}), 200 if db_ok else 503

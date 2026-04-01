@@ -7,12 +7,20 @@ Flask==3.0.3
 flask-cors==4.0.1
 gunicorn==22.0.0
 
-# Machine Learning (Python 3.11+ compatible)
+# Deep Learning — real plant disease model
+torch==2.2.2
+torchvision==0.17.2
+
+# Machine Learning (fallback)
 numpy==1.26.4
 scikit-learn==1.5.2
 
 # Image Processing
 Pillow==10.4.0
+
+# Model download from HuggingFace
+huggingface_hub==0.23.4
+requests==2.31.0
 
 # Additional dependencies
 Werkzeug==3.0.3
