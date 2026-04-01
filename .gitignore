@@ -65,3 +65,7 @@ htmlcov/
 # Misc
 *.bak
 *.tmp
+
+# Downloaded ML models (auto-downloaded on first run)
+models/
+*.pth
