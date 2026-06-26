@@ -8,9 +8,15 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
-      - key: USE_SQLITE
-        value: true
       - key: SECRET_KEY
         generateValue: true
       - key: FLASK_DEBUG
         value: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        sync: false

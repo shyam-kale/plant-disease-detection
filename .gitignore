@@ -23,8 +23,10 @@ wheels/
 .installed.cfg
 *.egg
 
-# Environment
+# Environment — NEVER commit credentials
 .env
+.env.*
+!.env.example
 .venv
 
 # Logs
@@ -33,14 +35,6 @@ app.log*
 
 # Uploads
 uploads/
-*.jpg
-*.jpeg
-*.png
-*.gif
-*.bmp
-*.webp
-*.tiff
-*.heic
 
 # Database
 *.sql.backup
@@ -57,15 +51,31 @@ uploads/
 .DS_Store
 Thumbs.db
 
-# Testing
+# Testing artefacts
 .pytest_cache/
 .coverage
 htmlcov/
+results/coverage_html/
+results/coverage.xml
+
+# Research results (generated — reproduce with: bash scripts/reproduce.sh <dataset>)
+results/evaluation_results.json
+results/summary_table.json
+results/summary_table.tex
+results/statistical_tests.json
+results/ablation_weights.json
+results/figures/
+results/*_output.log
+
+# MLflow tracking
+mlruns/
+
+# Downloaded ML models (auto-downloaded on first run)
+models/*.pth
+models/sklearn/*.pkl
+models/sklearn/training_stats.json
+models/sklearn/cv_results.json
 
 # Misc
 *.bak
 *.tmp
-
-# Downloaded ML models (auto-downloaded on first run)
-models/
-*.pth

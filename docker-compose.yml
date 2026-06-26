@@ -1,0 +1,59 @@
+version: "3.9"
+
+# ── Spinach Disease Detection — Docker Compose ───────────────────────────────
+# Usage:
+#   docker compose up --build
+#
+# For evaluation only (no DB):
+#   docker compose run --rm api python evaluate.py --data /data/<dataset>
+
+services:
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: spinach-disease-api:1.0.0
+    container_name: spinach_api
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_DEBUG=false
+      - HOST=0.0.0.0
+      - PORT=5000
+      - DB_HOST=${DB_HOST:-localhost}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_USER=${DB_USER:-root}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-spinach_db}
+      - SECRET_KEY=${SECRET_KEY}
+      - RATE_LIMIT=200
+    volumes:
+      - ./uploads:/app/uploads
+      - ./results:/app/results
+      - ./models:/app/models
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.14.1
+    container_name: spinach_mlflow
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./mlruns:/mlflow/mlruns
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri /mlflow/mlruns
+      --default-artifact-root /mlflow/mlruns
+    restart: unless-stopped
+
+volumes:
+  mlruns:

@@ -1,26 +1,44 @@
-# CropHealth AI - Python Dependencies
-# Install with: pip install -r requirements.txt
-# Python 3.11.9 required
+# Spinach Disease Detection — Python Dependencies
+# Install: pip install -r requirements.txt
+# Python 3.11.9 (pinned in .python-version)
 
-# Web Framework
+# ── Web Framework ────────────────────────────────────────────────────────────
 Flask==3.0.3
 flask-cors==4.0.1
 gunicorn==22.0.0
 
-# Deep Learning — real plant disease model
+# ── Deep Learning ────────────────────────────────────────────────────────────
 torch==2.2.2
 torchvision==0.17.2
+timm==1.0.9              # EfficientNet-B4 and other SOTA architectures
 
-# Machine Learning (fallback)
+# ── Machine Learning ─────────────────────────────────────────────────────────
 numpy==1.26.4
 scikit-learn==1.5.2
+xgboost==2.1.1           # replaces 5 weak sklearn classifiers
+scipy==1.13.1           # statistical tests: McNemar, Wilcoxon, bootstrap CI
 
-# Image Processing
+# ── Image Processing ─────────────────────────────────────────────────────────
 Pillow==10.4.0
 
-# Model download from HuggingFace
-huggingface_hub==0.23.4
+# ── Experiment Tracking ──────────────────────────────────────────────────────
+mlflow==2.14.1
+
+# ── Visualisation (figures for paper) ───────────────────────────────────────
+matplotlib==3.9.1
+seaborn==0.13.2
+
+# ── Model download ───────────────────────────────────────────────────────────
 requests==2.31.0
 
-# Additional dependencies
-Werkzeug==3.0.3
+# ── AWS RDS (MySQL) ──────────────────────────────────────────────────────────
+PyMySQL==1.1.1
+cryptography==42.0.8
+
+# ── Env vars ─────────────────────────────────────────────────────────────────
+python-dotenv==1.0.1
+
+# ── Testing ──────────────────────────────────────────────────────────────────
+pytest==8.3.5
+pytest-cov==6.0.0
+pytest-asyncio==0.24.0
